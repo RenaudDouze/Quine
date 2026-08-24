@@ -35,7 +35,7 @@
   box-sizing: border-box;
 }
 
-html, body {
+html, body, #root {
   margin: 0;
   padding: 0;
   height: 100%;
@@ -49,7 +49,7 @@ body {
   overflow-x: hidden;
 }
 
-#app {
+#root {
   max-width: 640px;
   margin: 0 auto;
   min-height: 100dvh;
@@ -358,9 +358,6 @@ button {
   justify-content: center;
   z-index: 50;
   animation: fadeIn 0.2s ease;
-}
-.bingo-banner[hidden] {
-  display: none;
 }
 .bingo-banner-inner {
   background: linear-gradient(135deg, var(--purple-500), #c026d3);
