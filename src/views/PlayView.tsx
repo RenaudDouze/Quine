@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { buildCells, checkWin, type Cell, type Grid } from "../lib/bingo";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { buildCells, checkWin, type Grid } from "../lib/bingo";
 import { loadGrids, saveGrids } from "../lib/storage";
 import { now } from "../lib/time";
 import { navigate } from "../hooks/useHashRoute";
@@ -26,13 +26,24 @@ export default function PlayView({ id }: Props) {
     [grid]
   );
 
-  // Show the banner whenever there's a win the player hasn't dismissed yet.
-  // Dismissal is tied to the exact `cells` array that was showing when the
-  // banner was closed: any further mark/unmark produces a new cells array
-  // (see toggleCell/handleShuffle/handleReset below), so a fresh win after
-  // dismissal naturally shows the banner again — no effect needed.
-  const [dismissedCells, setDismissedCells] = useState<Cell[] | null>(null);
-  const bannerVisible = hasWin && grid?.cells !== dismissedCells;
+  // Show the banner on every fresh "not a win -> win" transition, and hide
+  // it otherwise — including while the player keeps marking/unmarking cells
+  // that don't complete a line, which must NOT bring a dismissed banner
+  // back. That requires comparing hasWin against its value on the previous
+  // render, which oxlint's react(refs) rule doesn't recognize as safe even
+  // though it's React's own documented pattern for deriving state from a
+  // previous render (see "Adjusting state when a prop changes" on
+  // react.dev) — an effect here would also re-trigger a render, which the
+  // set-state-in-effect rule flags for the same reason.
+  const [dismissed, setDismissed] = useState(false);
+  const prevHasWinRef = useRef(hasWin);
+  /* oxlint-disable react/refs -- see comment above */
+  if (prevHasWinRef.current !== hasWin) {
+    prevHasWinRef.current = hasWin;
+    if (hasWin) setDismissed(false);
+  }
+  /* oxlint-enable react/refs */
+  const bannerVisible = hasWin && !dismissed;
 
   if (!grid) return null;
   const current: Grid = grid;
@@ -111,7 +122,7 @@ export default function PlayView({ id }: Props) {
       </div>
 
       {bannerVisible && (
-        <div className="bingo-banner" onClick={() => setDismissedCells(current.cells)}>
+        <div className="bingo-banner" onClick={() => setDismissed(true)}>
           <div className="bingo-banner-inner">
             <span>🎉 BINGO ! 🎉</span>
           </div>

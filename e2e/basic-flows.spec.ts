@@ -35,6 +35,25 @@ test('completing a row triggers a bingo', async ({ page }) => {
   await expect(page.getByText('BINGO !')).toBeVisible()
 })
 
+test('dismissing the bingo banner keeps it hidden when toggling an unrelated cell', async ({ page }) => {
+  await createGrid(page, {
+    title: 'Bingo complet',
+    size: 3,
+    items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
+  })
+
+  await page.locator('.cell').nth(0).click()
+  await page.locator('.cell').nth(1).click()
+  await page.locator('.cell').nth(2).click()
+  await expect(page.getByText('BINGO !')).toBeVisible()
+
+  await page.getByText('BINGO !').click() // dismiss
+  await page.locator('.cell').nth(3).click() // toggle a cell outside the winning row
+  await expect(page.getByText('BINGO !')).not.toBeVisible()
+  await page.locator('.cell').nth(3).click()
+  await expect(page.getByText('BINGO !')).not.toBeVisible()
+})
+
 test('reset clears marks without touching a free center cell', async ({ page }) => {
   await createGrid(page, {
     title: 'Bingo libre',

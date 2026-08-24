@@ -128,6 +128,23 @@ describe("PlayView", () => {
     expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
   });
 
+  it("keeps the dismissed banner hidden when toggling a cell outside the winning line", async () => {
+    const user = userEvent.setup();
+    seedGrid();
+    render(<PlayView id="g1" />);
+    const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+    await user.click(cells[0]);
+    await user.click(cells[1]);
+    await user.click(cells[2]);
+    expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
+
+    await user.click(screen.getByText(/bingo !/i)); // dismiss
+    await user.click(cells[3]); // mark an unrelated cell (still a win overall)
+    expect(screen.queryByText(/bingo !/i)).not.toBeInTheDocument();
+    await user.click(cells[3]); // unmark it again
+    expect(screen.queryByText(/bingo !/i)).not.toBeInTheDocument();
+  });
+
   it("reshuffles the grid on shuffle and resets marks (except free cells) on reset", async () => {
     const user = userEvent.setup();
     seedGrid();
