@@ -16,19 +16,18 @@
   font-family: var(--font-ui);
 }
 
-/* data-theme est réservé pour un futur bouton de choix de thème ; par
-   défaut on suit prefers-color-scheme, comme sur Compteur. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --bg-1: #0f172a;
-    --bg-2: #131c2e;
-    --surface: #1c2740;
-    --surface-border: #2f3b56;
-    --text: #f1f5f9;
-    --text-dim: #94a3b8;
-    --accent-dim: #241f3a;
-  }
+/* data-theme est posé par App.tsx (thème choisi, ou repli sur la
+   préférence système), et une première fois par le script inline
+   d'index.html pour éviter un flash du thème clair au chargement. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-1: #0f172a;
+  --bg-2: #131c2e;
+  --surface: #1c2740;
+  --surface-border: #2f3b56;
+  --text: #f1f5f9;
+  --text-dim: #94a3b8;
+  --accent-dim: #241f3a;
 }
 
 * {
@@ -70,7 +69,9 @@ button {
 .topbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
   padding-top: 8px;
   padding-bottom: 16px;
   position: sticky;
@@ -81,12 +82,24 @@ button {
 
 .topbar h1 {
   flex: 1;
+  /* Assez large pour ne jamais tronquer un court titre statique ("Mes
+     grilles") ; un titre de grille plus long (Play/Editor) continue de
+     s'ellipser une fois cette largeur atteinte. En dessous de cette
+     largeur, .topbar passe à la ligne (flex-wrap) plutôt que de tronquer
+     davantage. */
+  min-width: 150px;
   font-size: 1.3rem;
   margin: 0;
   letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Buttons */

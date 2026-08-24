@@ -1,5 +1,12 @@
 import type { Page } from '@playwright/test'
 
+/** Charge l'appli avec un localStorage vierge (grilles et préférence de thème). */
+export async function gotoFresh(page: Page) {
+  await page.goto('/')
+  await page.evaluate(() => localStorage.clear())
+  await page.goto('/')
+}
+
 export async function createGrid(
   page: Page,
   options: { title: string; size?: 3 | 4 | 5; items: string[]; freeCenter?: boolean }

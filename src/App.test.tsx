@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 beforeEach(() => {
@@ -48,5 +48,56 @@ describe("App", () => {
     window.location.hash = "play";
     render(<App />);
     expect(screen.getByText(/aucune grille pour le moment/i)).toBeInTheDocument();
+  });
+
+  it("applies the system theme and cycles it via the toggle button", async () => {
+    const meta = document.querySelector('meta[name="theme-color"]')!;
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(meta.getAttribute("content")).toBe("#f8fafc");
+
+    const toggle = screen.getByRole("button", { name: "Thème : Auto" });
+    await user.click(toggle);
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(screen.getByRole("button", { name: "Thème : Clair" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Thème : Clair" }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(meta.getAttribute("content")).toBe("#0f172a");
+
+    await user.click(screen.getByRole("button", { name: "Thème : Sombre" }));
+    expect(screen.getByRole("button", { name: "Thème : Auto" })).toBeInTheDocument();
+  });
+
+  it("resolves the system preference to dark when the system is in dark mode", () => {
+    const original = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    try {
+      render(<App />);
+      expect(document.documentElement.dataset.theme).toBe("dark");
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
+  it("does not crash when the theme-color meta tag is absent", () => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    meta?.remove();
+    try {
+      expect(() => render(<App />)).not.toThrow();
+    } finally {
+      if (meta) document.head.appendChild(meta);
+    }
   });
 });

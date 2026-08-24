@@ -3,10 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#7c3aed" />
+    <!-- Filet de secours pour les navigateurs qui ne savent pas utiliser un
+         favicon SVG comme icône de raccourci (ex : "Ajouter à l'écran
+         d'accueil" de Firefox Android, qui se rabat sur ce lien plutôt que
+         sur les icônes du manifest.webmanifest) : sans lui, l'icône ajoutée
+         au bureau reste générique. -->
+    <link rel="icon" type="image/png" sizes="192x192" href="./pwa-192x192.png" />
+    <link rel="apple-touch-icon" href="./pwa-192x192.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f8fafc" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="description" content="Créez et jouez à vos propres grilles de bingo personnalisées." />
     <title>Bingo</title>
+    <script>
+      // Pose le thème avant le premier rendu, pour éviter un flash du thème
+      // clair par défaut le temps que React s'hydrate. Miroir de la logique
+      // de src/App.tsx (clé de stockage et repli sur la préférence système).
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('bingo.theme.v1')
+          var pref = stored ? JSON.parse(stored) : 'system'
+          var theme =
+            pref === 'system'
+              ? window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+              : pref
+          document.documentElement.dataset.theme = theme
+        } catch {
+          // stockage indisponible : reste sur le thème clair par défaut.
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

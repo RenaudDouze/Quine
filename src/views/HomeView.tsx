@@ -1,9 +1,19 @@
 import { useState } from "react";
+import type { ThemePreference } from "../App";
 import type { Grid } from "../lib/bingo";
 import { loadGrids, saveGrids, uid } from "../lib/storage";
 import { navigate } from "../hooks/useHashRoute";
 
-export default function HomeView() {
+const THEME_ICON: Record<ThemePreference, string> = { system: "🌓", light: "☀️", dark: "🌙" };
+const THEME_LABEL: Record<ThemePreference, string> = { system: "Auto", light: "Clair", dark: "Sombre" };
+const NEXT_THEME: Record<ThemePreference, ThemePreference> = { system: "light", light: "dark", dark: "system" };
+
+interface Props {
+  themePreference: ThemePreference;
+  onThemePreferenceChange: (next: ThemePreference) => void;
+}
+
+export default function HomeView({ themePreference, onThemePreferenceChange }: Props) {
   const [grids, setGrids] = useState<Grid[]>(() =>
     loadGrids().sort((a, b) => b.updatedAt - a.updatedAt)
   );
@@ -37,9 +47,18 @@ export default function HomeView() {
     <>
       <header className="topbar">
         <h1>🎉 Mes grilles</h1>
-        <button className="btn btn-primary" onClick={() => navigate("editor")}>
-          + Nouvelle grille
-        </button>
+        <div className="topbar-actions">
+          <button
+            className="icon-btn"
+            onClick={() => onThemePreferenceChange(NEXT_THEME[themePreference])}
+            aria-label={`Thème : ${THEME_LABEL[themePreference]}`}
+          >
+            {THEME_ICON[themePreference]}
+          </button>
+          <button className="btn btn-primary" onClick={() => navigate("editor")}>
+            + Nouvelle grille
+          </button>
+        </div>
       </header>
 
       {grids.length === 0 ? (
