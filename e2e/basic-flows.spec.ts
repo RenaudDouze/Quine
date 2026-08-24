@@ -1,10 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { createGrid } from './helpers'
+import { createGrid, gotoFresh } from './helpers'
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
-  await page.evaluate(() => localStorage.clear())
-  await page.goto('/')
+  await gotoFresh(page)
 })
 
 test('shows the empty state on first visit', async ({ page }) => {

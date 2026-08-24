@@ -1,34 +1,33 @@
 :root {
-  --purple-50: #f5f3ff;
-  --purple-100: #ede9fe;
-  --purple-200: #ddd6fe;
-  --purple-500: #7c3aed;
-  --purple-600: #6d28d9;
-  --purple-700: #5b21b6;
-  --ink: #1f2430;
-  --ink-soft: #5c6270;
-  --bg: #f7f7fb;
-  --surface: #ffffff;
-  --border: #e6e3f1;
-  --danger: #e11d48;
-  --danger-bg: #fff1f2;
-  --gold: #f59e0b;
-  --radius: 16px;
-  --shadow: 0 1px 2px rgba(31, 36, 48, 0.06), 0 8px 24px -12px rgba(31, 36, 48, 0.18);
   color-scheme: light;
+  --bg-1: #f8fafc;
+  --bg-2: #eef2f9;
+  --surface: #ffffff;
+  --surface-border: #e2e8f0;
+  --text: #0f172a;
+  --text-dim: #64748b;
+  --accent: #7c3aed;
+  --accent-strong: #6d28d9;
+  --accent-dim: #ede9fe;
+  --accent-text: #5b21b6;
+  --danger: #e11d48;
+  --gold: #f59e0b;
+  --font-ui: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-ui);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14141c;
-    --surface: #1d1d29;
-    --ink: #f1f0f7;
-    --ink-soft: #a8a6ba;
-    --border: #2c2c3c;
-    --purple-50: #241f3a;
-    --purple-100: #2d2650;
-    color-scheme: dark;
-  }
+/* data-theme est posé par App.tsx (thème choisi, ou repli sur la
+   préférence système), et une première fois par le script inline
+   d'index.html pour éviter un flash du thème clair au chargement. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-1: #0f172a;
+  --bg-2: #131c2e;
+  --surface: #1c2740;
+  --surface-border: #2f3b56;
+  --text: #f1f5f9;
+  --text-dim: #94a3b8;
+  --accent-dim: #241f3a;
 }
 
 * {
@@ -42,10 +41,13 @@ html, body, #root {
 }
 
 body {
-  background: var(--bg);
-  color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
+  background: linear-gradient(160deg, var(--bg-1), var(--bg-2));
+  min-height: 100vh;
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
   overflow-x: hidden;
 }
 
@@ -55,11 +57,11 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: env(safe-area-inset-top, 0) 16px calc(env(safe-area-inset-bottom, 0) + 16px);
+  padding: max(16px, env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
 }
 
 button {
-  font: inherit;
+  font-family: inherit;
   cursor: pointer;
 }
 
@@ -67,21 +69,37 @@ button {
 .topbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 20px 0 16px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  padding-bottom: 16px;
   position: sticky;
   top: 0;
-  background: var(--bg);
+  background: var(--bg-1);
   z-index: 5;
 }
 
 .topbar h1 {
   flex: 1;
-  font-size: 1.15rem;
+  /* Assez large pour ne jamais tronquer un court titre statique ("Mes
+     grilles") ; un titre de grille plus long (Play/Editor) continue de
+     s'ellipser une fois cette largeur atteinte. En dessous de cette
+     largeur, .topbar passe à la ligne (flex-wrap) plutôt que de tronquer
+     davantage. */
+  min-width: 150px;
+  font-size: 1.3rem;
   margin: 0;
+  letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Buttons */
@@ -91,35 +109,45 @@ button {
   padding: 10px 18px;
   font-weight: 600;
   font-size: 0.95rem;
-  transition: transform 0.08s ease, opacity 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
 .btn:active {
-  transform: scale(0.96);
+  transform: scale(0.95);
 }
 .btn-primary {
-  background: var(--purple-500);
+  background: var(--accent);
   color: white;
 }
+.btn-primary:hover {
+  background: var(--accent-strong);
+}
 .btn-secondary {
-  background: var(--purple-100);
-  color: var(--purple-700);
+  background: var(--accent-dim);
+  color: var(--accent-text);
+  box-shadow: none;
 }
 .btn-ghost {
   background: transparent;
-  color: var(--ink-soft);
+  color: var(--text-dim);
   padding: 10px 8px;
+  box-shadow: none;
 }
 .icon-btn {
-  border: none;
+  border: 1px solid var(--surface-border);
   background: var(--surface);
-  border: 1px solid var(--border);
   width: 38px;
   height: 38px;
-  border-radius: 12px;
+  border-radius: 999px;
   font-size: 1rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.icon-btn:active {
+  transform: scale(0.95);
 }
 .icon-btn-danger {
   color: var(--danger);
@@ -138,9 +166,9 @@ button {
   align-items: stretch;
   gap: 8px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  border: 1px solid var(--surface-border);
+  border-radius: 22px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
   overflow: hidden;
 }
 
@@ -153,14 +181,14 @@ button {
   background: transparent;
   border: none;
   text-align: left;
-  padding: 14px 16px;
+  padding: 16px 16px 14px;
   min-width: 0;
 }
 
 .card-title {
   font-weight: 700;
-  font-size: 1.02rem;
-  color: var(--ink);
+  font-size: 1.05rem;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -169,7 +197,7 @@ button {
 
 .card-meta {
   font-size: 0.82rem;
-  color: var(--ink-soft);
+  color: var(--text-dim);
 }
 
 .card-actions {
@@ -184,12 +212,13 @@ button {
   height: 34px;
   border: none;
   background: transparent;
+  box-shadow: none;
   font-size: 0.95rem;
 }
 
 .empty-state {
   text-align: center;
-  color: var(--ink-soft);
+  color: var(--text-dim);
   padding: 60px 20px;
   display: flex;
   flex-direction: column;
@@ -210,7 +239,7 @@ button {
   flex-direction: column;
   gap: 6px;
   font-size: 0.9rem;
-  color: var(--ink-soft);
+  color: var(--text-dim);
   font-weight: 600;
 }
 
@@ -219,12 +248,13 @@ button {
 .field textarea {
   font: inherit;
   padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
+  border-radius: 14px;
+  border: 1px solid var(--surface-border);
   background: var(--surface);
-  color: var(--ink);
+  color: var(--text);
   font-weight: 400;
   resize: vertical;
+  transition: border-color 0.15s ease;
 }
 
 .field textarea {
@@ -235,7 +265,7 @@ button {
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
-  outline: 2px solid var(--purple-500);
+  outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
@@ -248,13 +278,13 @@ button {
 .checkbox-field input {
   width: 20px;
   height: 20px;
-  accent-color: var(--purple-500);
+  accent-color: var(--accent);
 }
 
 .hint {
   margin: -8px 0 0;
   font-size: 0.85rem;
-  color: var(--ink-soft);
+  color: var(--text-dim);
 }
 .hint.hint-error {
   color: var(--danger);
@@ -290,9 +320,9 @@ button {
 .cell {
   position: relative;
   aspect-ratio: 1 / 1;
-  border: 1px solid var(--border);
+  border: 1px solid var(--surface-border);
   background: var(--surface);
-  border-radius: 10px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -300,9 +330,10 @@ button {
   padding: 4px;
   font-size: clamp(0.55rem, 2.6vw, 0.82rem);
   line-height: 1.15;
-  color: var(--ink);
+  color: var(--text);
   overflow: hidden;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.08s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
   word-break: break-word;
 }
 
@@ -311,19 +342,19 @@ button {
 }
 
 .cell.marked {
-  background: var(--purple-500);
+  background: var(--accent);
   color: white;
-  border-color: var(--purple-500);
+  border-color: var(--accent);
 }
 
 .cell.free {
-  background: var(--purple-100);
-  color: var(--purple-700);
+  background: var(--accent-dim);
+  color: var(--accent-text);
   font-weight: 700;
-  border-color: var(--purple-200);
+  border-color: var(--accent-dim);
 }
 .cell.free.marked {
-  background: var(--purple-500);
+  background: var(--accent);
   color: white;
 }
 
@@ -352,7 +383,7 @@ button {
 .bingo-banner {
   position: fixed;
   inset: 0;
-  background: rgba(20, 10, 40, 0.55);
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -360,13 +391,13 @@ button {
   animation: fadeIn 0.2s ease;
 }
 .bingo-banner-inner {
-  background: linear-gradient(135deg, var(--purple-500), #c026d3);
+  background: linear-gradient(135deg, var(--accent), #c026d3);
   color: white;
   font-size: 2rem;
   font-weight: 800;
   padding: 28px 40px;
-  border-radius: 20px;
-  box-shadow: 0 20px 50px -10px rgba(0,0,0,0.5);
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
   animation: pop 0.35s cubic-bezier(.34,1.56,.64,1);
   text-align: center;
 }
