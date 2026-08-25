@@ -83,6 +83,28 @@ test('sets a custom color and background image on a grid card', async ({ page })
   await expect(card.locator('.grid-item-bg')).toHaveCount(1)
 })
 
+test('carries the custom color over to marked cells and the win banner during play', async ({ page }) => {
+  await createGrid(page, { title: 'Rose', size: 3, items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] })
+  await page.goto('/')
+
+  await customize(page, 'Rose')
+  await page.getByRole('button', { name: 'Choisir la couleur #db2777' }).click()
+  await page.keyboard.press('Escape')
+
+  await page.getByText('Rose', { exact: true }).click()
+  await page.waitForSelector('.cell')
+  const firstCell = page.locator('.cell').first()
+  await firstCell.click()
+  await expect(firstCell).toHaveCSS('background-color', 'rgb(219, 39, 119)')
+
+  await page.locator('.cell').nth(1).click()
+  await page.locator('.cell').nth(2).click()
+  await expect(page.locator('.bingo-banner-inner')).toHaveCSS(
+    'background-image',
+    /rgb\(219, 39, 119\)/
+  )
+})
+
 test('drag handles are hidden once a grid is archived, and reappear once no grid is archived', async ({ page }) => {
   await createGrid(page, { title: 'Alpha', size: 3, items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] })
   await page.goto('/')

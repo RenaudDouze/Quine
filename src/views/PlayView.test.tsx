@@ -18,6 +18,7 @@ function seedGrid(overrides: Partial<Grid> = {}): Grid {
     cells: overrides.cells ?? buildCells(items, size, freeCenter),
     createdAt: 1,
     updatedAt: 1,
+    ...overrides,
   };
   saveGrids([grid]);
   return grid;
@@ -221,6 +222,22 @@ describe("PlayView", () => {
     const grid = loadGrids()[0];
     expect(grid.cells.find((c) => c.free)?.marked).toBe(true);
     expect(grid.cells.filter((c) => !c.free).every((c) => !c.marked)).toBe(true);
+  });
+
+  describe("couleur personnalisée", () => {
+    it("applies the grid's custom color as the play screen's accent", () => {
+      seedGrid({ color: "#db2777" });
+      render(<PlayView id="g1" />);
+      const wrapper = document.querySelector(".topbar")!.parentElement as HTMLElement;
+      expect(wrapper.style.getPropertyValue("--accent")).toBe("#db2777");
+    });
+
+    it("does not override the theme's accent when the grid has no custom color", () => {
+      seedGrid();
+      render(<PlayView id="g1" />);
+      const wrapper = document.querySelector(".topbar")!.parentElement as HTMLElement;
+      expect(wrapper.style.getPropertyValue("--accent")).toBe("");
+    });
   });
 
   describe("confetti de victoire", () => {
