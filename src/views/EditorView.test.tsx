@@ -20,7 +20,7 @@ describe("EditorView — creating a grid", () => {
     const user = userEvent.setup();
     render(<EditorView />);
     await user.type(screen.getByPlaceholderText(/bingo réunion/i), "Incomplète");
-    await user.selectOptions(screen.getByRole("combobox"), "3");
+    await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "3");
     await user.type(screen.getByPlaceholderText(/écrivez chaque phrase/i), "A\nB\nC");
     await user.click(screen.getByRole("button", { name: /générer la grille/i }));
 
@@ -38,7 +38,7 @@ describe("EditorView — creating a grid", () => {
   it("falls back to a default title when none is provided", async () => {
     const user = userEvent.setup();
     render(<EditorView />);
-    await user.selectOptions(screen.getByRole("combobox"), "3");
+    await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "3");
     await user.type(
       screen.getByPlaceholderText(/écrivez chaque phrase/i),
       "A\nB\nC\nD\nE\nF\nG\nH\nI"
@@ -56,7 +56,7 @@ describe("EditorView — creating a grid", () => {
   it("flags the surplus when more items are provided than needed", async () => {
     const user = userEvent.setup();
     render(<EditorView />);
-    await user.selectOptions(screen.getByRole("combobox"), "3");
+    await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "3");
     await user.type(
       screen.getByPlaceholderText(/écrivez chaque phrase/i),
       "A\nB\nC\nD\nE\nF\nG\nH\nI\nJ"
@@ -68,7 +68,7 @@ describe("EditorView — creating a grid", () => {
     const user = userEvent.setup();
     render(<EditorView />);
     await user.type(screen.getByPlaceholderText(/bingo réunion/i), "Grille libre");
-    await user.selectOptions(screen.getByRole("combobox"), "5");
+    await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "5");
     await user.click(screen.getByLabelText(/case centrale libre/i));
     await user.type(
       screen.getByPlaceholderText(/écrivez chaque phrase/i),
@@ -84,12 +84,12 @@ describe("EditorView — creating a grid", () => {
   it("disables and unchecks the free-center option for an even size", async () => {
     const user = userEvent.setup();
     render(<EditorView />);
-    await user.selectOptions(screen.getByRole("combobox"), "5");
+    await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "5");
     const checkbox = screen.getByLabelText(/case centrale libre/i);
     await user.click(checkbox);
     expect(checkbox).toBeChecked();
 
-    await user.selectOptions(screen.getByRole("combobox"), "4");
+    await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "4");
     expect(checkbox).not.toBeChecked();
     expect(checkbox).toBeDisabled();
   });
@@ -98,7 +98,7 @@ describe("EditorView — creating a grid", () => {
     const user = userEvent.setup();
     render(<EditorView />);
     await user.type(screen.getByPlaceholderText(/bingo réunion/i), title);
-    await user.selectOptions(screen.getByRole("combobox"), "3");
+    await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "3");
     await user.type(
       screen.getByPlaceholderText(/écrivez chaque phrase/i),
       "A\nB\nC\nD\nE\nF\nG\nH\nI"
@@ -120,10 +120,30 @@ describe("EditorView — creating a grid", () => {
     const created = loadGrids().find((g) => g.title === "Troisième");
     expect(created?.color).toBe(COLORS[2]);
   });
+
+  it('defaults the win rule to "line" when not changed', async () => {
+    await generateGrid("Défaut");
+    expect(loadGrids()[0].winRule).toBe("line");
+  });
+
+  it.each(["blackout", "corners"] as const)('stores the chosen win rule "%s"', async (winRule) => {
+    const user = userEvent.setup();
+    render(<EditorView />);
+    await user.type(screen.getByPlaceholderText(/bingo réunion/i), "Avec règle");
+    await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "3");
+    await user.selectOptions(screen.getByRole("combobox", { name: /condition de victoire/i }), winRule);
+    await user.type(
+      screen.getByPlaceholderText(/écrivez chaque phrase/i),
+      "A\nB\nC\nD\nE\nF\nG\nH\nI"
+    );
+    await user.click(screen.getByRole("button", { name: /générer la grille/i }));
+
+    expect(loadGrids()[0].winRule).toBe(winRule);
+  });
 });
 
 describe("EditorView — editing an existing grid", () => {
-  function seedGrid(): Grid {
+  function seedGrid(overrides: Partial<Grid> = {}): Grid {
     const grid: Grid = {
       id: "g1",
       title: "Ancien titre",
@@ -133,6 +153,7 @@ describe("EditorView — editing an existing grid", () => {
       cells: [],
       createdAt: 1,
       updatedAt: 1,
+      ...overrides,
     };
     saveGrids([grid]);
     return grid;
@@ -170,5 +191,21 @@ describe("EditorView — editing an existing grid", () => {
     expect(grids).toHaveLength(1);
     expect(grids[0].title).toBe("Nouveau titre");
     expect(grids[0].cells).toHaveLength(9);
+  });
+
+  it("pre-fills the win rule select with the existing grid's rule", () => {
+    seedGrid({ winRule: "corners" });
+    render(<EditorView id="g1" />);
+    expect(screen.getByRole("combobox", { name: /condition de victoire/i })).toHaveValue("corners");
+  });
+
+  it("updates the win rule when editing an existing grid", async () => {
+    const user = userEvent.setup();
+    seedGrid({ winRule: "line" });
+    render(<EditorView id="g1" />);
+    await user.selectOptions(screen.getByRole("combobox", { name: /condition de victoire/i }), "blackout");
+    await user.click(screen.getByRole("button", { name: /générer la grille/i }));
+
+    expect(loadGrids()[0].winRule).toBe("blackout");
   });
 });

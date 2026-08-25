@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { buildCells, checkWin, type Grid } from "../lib/bingo";
+import { downloadGridSvg } from "../lib/gridImage";
 import { loadGrids, saveGrids } from "../lib/storage";
 import { now } from "../lib/time";
 import { navigate } from "../hooks/useHashRoute";
@@ -30,7 +31,10 @@ export default function PlayView({ id }: Props) {
   }, [grid]);
 
   const { hasWin, winSet } = useMemo(
-    () => (grid ? checkWin(grid.cells, grid.size) : { hasWin: false, winSet: new Set<number>() }),
+    () =>
+      grid
+        ? checkWin(grid.cells, grid.size, grid.winRule)
+        : { hasWin: false, winSet: new Set<number>() },
     [grid]
   );
 
@@ -44,6 +48,44 @@ export default function PlayView({ id }: Props) {
   // permanently hide the banner on an actual win.
   const [dismissed, setDismissed] = useState(false);
   const bannerVisible = hasWin && !dismissed;
+
+  // Masque l'en-tête et les actions pour ne garder que la grille à l'écran
+  // (utile pour projeter une grille sur une TV pendant un événement), et
+  // passe en plein écran natif quand c'est supporté (absent sur Safari iOS,
+  // où le masquage de l'en-tête reste quand même utile seul).
+  const [focusMode, setFocusMode] = useState(false);
+
+  useEffect(() => {
+    if (focusMode) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, [focusMode]);
+
+  // Synchronise l'état si le plein écran natif est quitté autrement que par
+  // notre bouton (ex : touche Échap gérée nativement par le navigateur).
+  /* oxlint-disable react/set-state-in-effect -- réagit à un événement externe
+     au navigateur (sortie du plein écran natif), pas dérivable au rendu */
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) setFocusMode(false);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  // Filet de sécurité pour les navigateurs sans API Fullscreen (ex : Safari
+  // iOS) : l'événement `fullscreenchange` ci-dessus n'y est jamais émis.
+  useEffect(() => {
+    if (!focusMode) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFocusMode(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [focusMode]);
+  /* oxlint-enable react/set-state-in-effect */
 
   // Célèbre l'apparition du bandeau (transition false → true), pas juste le
   // fait qu'il soit visible : sinon rouvrir une grille déjà gagnée
@@ -95,7 +137,7 @@ export default function PlayView({ id }: Props) {
     // complete (checkWin's winSet is the union of every complete line, so
     // its content can shrink on unmark without hasWin becoming false).
     if (!wasMarked) {
-      const newWinSet = checkWin(cells, current.size).winSet;
+      const newWinSet = checkWin(cells, current.size, current.winRule).winSet;
       if ([...newWinSet].some((idx) => !winSet.has(idx))) {
         setDismissed(false);
       }
@@ -122,20 +164,58 @@ export default function PlayView({ id }: Props) {
   // variable CSS, pas pour générer sa propre boîte.
   return (
     <div style={{ display: "contents", "--accent": current.color } as CSSProperties}>
-      <header className="topbar">
-        <button className="btn btn-ghost" onClick={() => navigate("home")}>
-          ← Retour
-        </button>
-        <h1>{current.title}</h1>
+      {focusMode && (
         <button
-          className="icon-btn"
-          title="Modifier"
-          aria-label="Modifier"
-          onClick={() => navigate("editor", current.id)}
+          className="focus-exit-btn"
+          onClick={() => setFocusMode(false)}
+          aria-label="Quitter le mode plein écran"
         >
-          ✏️
+          ✕
         </button>
-      </header>
+      )}
+
+      {!focusMode && (
+        <header className="topbar">
+          <button className="btn btn-ghost" onClick={() => navigate("home")}>
+            ← Retour
+          </button>
+          <h1>{current.title}</h1>
+          <div className="topbar-actions">
+            <button
+              className="icon-btn"
+              title="Mode plein écran"
+              aria-label="Mode plein écran"
+              onClick={() => setFocusMode(true)}
+            >
+              ⛶
+            </button>
+            <button
+              className="icon-btn"
+              title="Exporter en image"
+              aria-label="Exporter en image"
+              onClick={() => downloadGridSvg(current)}
+            >
+              🖼️
+            </button>
+            <button
+              className="icon-btn"
+              title="Imprimer"
+              aria-label="Imprimer"
+              onClick={() => window.print()}
+            >
+              🖨️
+            </button>
+            <button
+              className="icon-btn"
+              title="Modifier"
+              aria-label="Modifier"
+              onClick={() => navigate("editor", current.id)}
+            >
+              ✏️
+            </button>
+          </div>
+        </header>
+      )}
 
       <div className="board-wrap">
         <div className="board" style={{ gridTemplateColumns: `repeat(${current.size}, 1fr)` }}>
@@ -158,14 +238,16 @@ export default function PlayView({ id }: Props) {
         </div>
       </div>
 
-      <div className="play-actions">
-        <button className="btn btn-secondary" onClick={handleShuffle}>
-          🔀 Remélanger
-        </button>
-        <button className="btn btn-secondary" onClick={handleReset}>
-          ↺ Réinitialiser les coches
-        </button>
-      </div>
+      {!focusMode && (
+        <div className="play-actions">
+          <button className="btn btn-secondary" onClick={handleShuffle}>
+            🔀 Remélanger
+          </button>
+          <button className="btn btn-secondary" onClick={handleReset}>
+            ↺ Réinitialiser les coches
+          </button>
+        </div>
+      )}
 
       {bannerVisible && (
         <div className="bingo-banner" onClick={() => setDismissed(true)}>

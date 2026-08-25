@@ -21,7 +21,22 @@ export interface Grid {
   pinned?: boolean;
   /** Grille archivée : masquée de la liste par défaut. Absente = active. */
   archived?: boolean;
+  /** Condition de victoire. Absente = "line" (ligne, colonne ou diagonale). */
+  winRule?: WinRule;
 }
+
+/** Condition de victoire d'une grille :
+ * - "line" : une ligne, une colonne ou une diagonale complète (par défaut).
+ * - "blackout" : carton plein, toutes les cases cochées.
+ * - "corners" : les quatre coins de la grille cochés. */
+export type WinRule = "line" | "blackout" | "corners";
+
+/** Options proposées pour la condition de victoire, dans l'ordre de sélection. */
+export const WIN_RULES: { id: WinRule; label: string }[] = [
+  { id: "line", label: "ligne, colonne ou diagonale" },
+  { id: "blackout", label: "carton plein" },
+  { id: "corners", label: "quatre coins" },
+];
 
 /** Une grille correspond à une recherche si son titre contient la requête
  * (insensible à la casse). Une requête vide (ou blanche, une fois "trim"ée)
@@ -85,7 +100,7 @@ export interface WinResult {
   winSet: Set<number>;
 }
 
-export function checkWin(cells: Cell[], size: number): WinResult {
+function checkLineWin(cells: Cell[], size: number): WinResult {
   const marked = (i: number) => cells[i].marked;
   const winSet = new Set<number>();
   let hasWin = false;
@@ -124,4 +139,21 @@ export function checkWin(cells: Cell[], size: number): WinResult {
   }
 
   return { hasWin, winSet };
+}
+
+function checkBlackoutWin(cells: Cell[]): WinResult {
+  const hasWin = cells.every((c) => c.marked);
+  return { hasWin, winSet: hasWin ? new Set(cells.map((_, i) => i)) : new Set() };
+}
+
+function checkCornersWin(cells: Cell[], size: number): WinResult {
+  const corners = [0, size - 1, size * (size - 1), size * size - 1];
+  const hasWin = corners.every((i) => cells[i].marked);
+  return { hasWin, winSet: hasWin ? new Set(corners) : new Set() };
+}
+
+export function checkWin(cells: Cell[], size: number, rule: WinRule = "line"): WinResult {
+  if (rule === "blackout") return checkBlackoutWin(cells);
+  if (rule === "corners") return checkCornersWin(cells, size);
+  return checkLineWin(cells, size);
 }

@@ -61,6 +61,21 @@ describe("GridCard", () => {
     expect(screen.queryByText(/case libre/i)).not.toBeInTheDocument();
   });
 
+  it.each(["blackout", "corners"] as const)('shows the win rule hint for "%s"', (winRule) => {
+    renderCard({ winRule });
+    expect(screen.getByText(winRule === "blackout" ? /carton plein/i : /quatre coins/i)).toBeInTheDocument();
+  });
+
+  it('does not show a win rule hint for the default "line" rule', () => {
+    renderCard({ winRule: "line" });
+    expect(screen.queryByText(/carton plein|quatre coins/i)).not.toBeInTheDocument();
+  });
+
+  it("does not show a win rule hint when unset", () => {
+    renderCard();
+    expect(screen.queryByText(/carton plein|quatre coins/i)).not.toBeInTheDocument();
+  });
+
   it("calls onPlay when the card is clicked", async () => {
     const user = userEvent.setup();
     const { onPlay } = renderCard();

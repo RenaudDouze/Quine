@@ -9,15 +9,24 @@ export async function gotoFresh(page: Page) {
 
 export async function createGrid(
   page: Page,
-  options: { title: string; size?: 3 | 4 | 5; items: string[]; freeCenter?: boolean }
+  options: {
+    title: string
+    size?: 3 | 4 | 5
+    items: string[]
+    freeCenter?: boolean
+    winRule?: 'line' | 'blackout' | 'corners'
+  }
 ) {
-  const { title, size = 3, items, freeCenter = false } = options
+  const { title, size = 3, items, freeCenter = false, winRule } = options
 
   await page.getByRole('button', { name: '+ Nouvelle grille' }).click()
   await page.getByPlaceholder(/bingo réunion/i).fill(title)
-  await page.getByRole('combobox').selectOption(String(size))
+  await page.getByRole('combobox', { name: /taille de la grille/i }).selectOption(String(size))
   if (freeCenter) {
     await page.getByLabel(/case centrale libre/i).check()
+  }
+  if (winRule) {
+    await page.getByRole('combobox', { name: /condition de victoire/i }).selectOption(winRule)
   }
   await page.getByPlaceholder(/écrivez chaque phrase/i).fill(items.join('\n'))
   await page.getByRole('button', { name: /générer la grille/i }).click()

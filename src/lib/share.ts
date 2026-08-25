@@ -1,18 +1,7 @@
-import { buildCells, type Cell, type Grid } from "./bingo";
+import { buildCells, type Cell, type Grid, type WinRule } from "./bingo";
+import { triggerDownload } from "./download";
 import { uid } from "./storage";
 import { now } from "./time";
-
-/** Déclenche le téléchargement d'un blob sous le nom de fichier donné. */
-function triggerDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
 
 /** Déclenche le téléchargement d'un fichier JSON contenant toutes les grilles
  * (état complet, cases cochées comprises — pour restaurer sur un autre appareil). */
@@ -67,6 +56,7 @@ function normalizeGrid(raw: Partial<Grid>): Grid {
     backgroundImageUrl: typeof raw.backgroundImageUrl === "string" ? raw.backgroundImageUrl : undefined,
     pinned: !!raw.pinned,
     archived: !!raw.archived,
+    winRule: raw.winRule === "blackout" || raw.winRule === "corners" ? raw.winRule : "line",
   };
 }
 
@@ -86,15 +76,15 @@ export function parseBackupJson(text: string): Grid[] | null {
 }
 
 // Format compact utilisé pour le lien/QR code : uniquement de quoi
-// régénérer une grille "fraîche" (titre, taille, case libre, mots, apparence)
-// — mélangée et non cochée côté destinataire. On partage un modèle à jouer,
-// pas sa progression exacte (voir downloadBackup pour une sauvegarde
-// complète avec les cases cochées). `pinned`/`archived` sont volontairement
-// exclus : ce sont des préférences d'organisation de LA liste de l'expéditeur
-// (épinglée en haut de son écran, masquée dans ses archives), pas des
-// attributs de la grille elle-même — les transmettre ferait atterrir la
-// copie du destinataire épinglée ou, pire, cachée dans un onglet Archivés
-// qu'il ne pense pas à ouvrir après avoir scanné un QR code.
+// régénérer une grille "fraîche" (titre, taille, case libre, mots, apparence,
+// condition de victoire) — mélangée et non cochée côté destinataire. On
+// partage un modèle à jouer, pas sa progression exacte (voir downloadBackup
+// pour une sauvegarde complète avec les cases cochées). `pinned`/`archived`
+// sont volontairement exclus : ce sont des préférences d'organisation de LA
+// liste de l'expéditeur (épinglée en haut de son écran, masquée dans ses
+// archives), pas des attributs de la grille elle-même — les transmettre
+// ferait atterrir la copie du destinataire épinglée ou, pire, cachée dans un
+// onglet Archivés qu'il ne pense pas à ouvrir après avoir scanné un QR code.
 interface CompactGrid {
   t: string;
   s: number;
@@ -102,6 +92,7 @@ interface CompactGrid {
   i: string[];
   k?: string;
   u?: string;
+  w?: WinRule;
 }
 
 function toCompact(grid: Grid): CompactGrid {
@@ -112,6 +103,7 @@ function toCompact(grid: Grid): CompactGrid {
     i: grid.items,
     ...(grid.color ? { k: grid.color } : {}),
     ...(grid.backgroundImageUrl ? { u: grid.backgroundImageUrl } : {}),
+    ...(grid.winRule && grid.winRule !== "line" ? { w: grid.winRule } : {}),
   };
 }
 
@@ -123,6 +115,7 @@ function fromCompact(raw: CompactGrid): Grid {
     items: raw.i,
     color: raw.k,
     backgroundImageUrl: raw.u,
+    winRule: raw.w,
   });
 }
 

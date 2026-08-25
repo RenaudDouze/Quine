@@ -19,6 +19,17 @@ function pseudoRandomString(seed: number, length: number): string {
   return s;
 }
 
+/** Décode le payload compact (même logique que `decodeGridsFromParam`, sans
+ * passer par `fromCompact`/`normalizeGrid`) pour inspecter directement quelles
+ * clés le format compact inclut ou omet. */
+function decodeCompactPayload(param: string): unknown[] {
+  const base64 = param.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(base64);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  const json = new TextDecoder().decode(bytes);
+  return JSON.parse(json) as unknown[];
+}
+
 function makeGrid(overrides: Partial<Grid> = {}): Grid {
   const size = overrides.size ?? 3;
   const freeCenter = overrides.freeCenter ?? false;
@@ -288,6 +299,21 @@ describe("parseBackupJson", () => {
     expect(result?.[0].color).toBeUndefined();
     expect(result?.[0].backgroundImageUrl).toBeUndefined();
   });
+
+  it('retombe sur la condition de victoire "line" si absente ou invalide', () => {
+    expect(parseBackupJson(JSON.stringify([{ title: "A", size: 3, items: [] }]))?.[0].winRule).toBe(
+      "line"
+    );
+    expect(
+      parseBackupJson(JSON.stringify([{ title: "A", size: 3, items: [], winRule: "n-importe-quoi" }]))
+        ?.[0].winRule
+    ).toBe("line");
+  });
+
+  it.each(["blackout", "corners"] as const)('conserve la condition de victoire "%s"', (winRule) => {
+    const result = parseBackupJson(JSON.stringify([{ title: "A", size: 3, items: [], winRule }]));
+    expect(result?.[0].winRule).toBe(winRule);
+  });
 });
 
 describe("encodeGridsToParam / decodeGridsFromParam", () => {
@@ -390,6 +416,31 @@ describe("encodeGridsToParam / decodeGridsFromParam", () => {
     const decoded = decodeGridsFromParam(encoded);
     expect(decoded?.[0].color).toBeUndefined();
     expect(decoded?.[0].backgroundImageUrl).toBeUndefined();
+  });
+
+  it.each(["blackout", "corners"] as const)(
+    'fait un aller-retour fidèle pour la condition de victoire "%s"',
+    (winRule) => {
+      const encoded = encodeGridsToParam([makeGrid({ winRule })]);
+      const decoded = decodeGridsFromParam(encoded);
+      expect(decoded?.[0].winRule).toBe(winRule);
+    }
+  );
+
+  it('omet la condition de victoire du lien compact quand elle vaut "line" (par défaut)', () => {
+    const encoded = encodeGridsToParam([makeGrid({ winRule: "line" })]);
+    expect(decodeGridsFromParam(encoded)?.[0].winRule).toBe("line");
+    // Le résultat décodé est identique avec ou sans la clé "w" (normalizeGrid
+    // retombe sur "line" dans les deux cas) : seule une inspection directe du
+    // payload compact prouve que la clé est bien omise, pas juste redondante.
+    const compact = decodeCompactPayload(encoded)[0] as Record<string, unknown>;
+    expect("w" in compact).toBe(false);
+  });
+
+  it('inclut la condition de victoire dans le payload compact quand elle n\'est pas "line"', () => {
+    const encoded = encodeGridsToParam([makeGrid({ winRule: "blackout" })]);
+    const compact = decodeCompactPayload(encoded)[0] as Record<string, unknown>;
+    expect(compact.w).toBe("blackout");
   });
 
   it("ne transmet jamais l'épinglage ni l'archivage via le lien/QR (préférences de la liste de l'expéditeur)", () => {

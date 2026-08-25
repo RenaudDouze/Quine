@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Reorder } from "framer-motion";
 import type { ThemePreference } from "../App";
 import CustomizeModal from "../components/CustomizeModal";
@@ -36,6 +36,24 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   // d'écran, plutôt qu'un `window.confirm()` bloquant avant l'action.
   const [undo, setUndo] = useState<{ label: string; grids: Grid[] } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Action rapide depuis un raccourci de l'app installée (?action=new|sync),
+  // déclarés dans le manifest PWA (voir vite.config.ts).
+  /* oxlint-disable react/set-state-in-effect -- synchronise avec l'URL au
+     chargement (source externe), pas un état dérivable pendant le rendu */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get("action");
+    if (!action) return;
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete("action");
+    window.history.replaceState({}, "", url.toString());
+
+    if (action === "new") navigate("editor");
+    if (action === "sync") setSyncOpen(true);
+  }, []);
+  /* oxlint-enable react/set-state-in-effect */
 
   function persist(next: Grid[]) {
     saveGrids(next);
