@@ -113,8 +113,15 @@ export default function PlayView({ id }: Props) {
     persist({ ...current, cells });
   }
 
+  // Reprend la couleur choisie pour cette grille (voir le panneau
+  // « Personnaliser ») dans le design de l'écran de jeu : cases cochées et
+  // bandeau de victoire. `undefined` (pas de couleur perso) est omis par
+  // React du style rendu, ce qui laisse simplement l'accent du thème
+  // s'appliquer normalement. `display: contents` garde le layout flex du
+  // parent (`#root`) inchangé — ce wrapper n'existe que pour porter la
+  // variable CSS, pas pour générer sa propre boîte.
   return (
-    <>
+    <div style={{ display: "contents", "--accent": current.color } as CSSProperties}>
       <header className="topbar">
         <button className="btn btn-ghost" onClick={() => navigate("home")}>
           ← Retour
@@ -185,6 +192,6 @@ export default function PlayView({ id }: Props) {
           ))}
         </div>
       )}
-    </>
+    </div>
   );
 }
