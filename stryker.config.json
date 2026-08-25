@@ -11,7 +11,7 @@
   },
   "reporters": ["html", "clear-text", "progress"],
   "coverageAnalysis": "perTest",
-  "mutate": ["src/lib/bingo.ts", "src/lib/share.ts"],
+  "mutate": ["src/lib/bingo.ts", "src/lib/share.ts", "src/lib/colors.ts", "src/lib/url.ts"],
   "thresholds": {
     "high": 100,
     "low": 100,

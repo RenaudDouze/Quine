@@ -1,5 +1,6 @@
 import { type FormEvent, useMemo, useState } from "react";
 import { buildCells, neededCount, type Grid } from "../lib/bingo";
+import { pickColor } from "../lib/colors";
 import { loadGrids, saveGrids, uid } from "../lib/storage";
 import { navigate } from "../hooks/useHashRoute";
 
@@ -57,6 +58,7 @@ export default function EditorView({ id }: Props) {
         cells: buildCells(lines, size, effectiveFreeCenter),
         createdAt: now,
         updatedAt: now,
+        color: pickColor(grids.length),
       };
       grids.push(grid);
     }

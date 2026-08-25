@@ -13,6 +13,31 @@ export interface Grid {
   cells: Cell[];
   createdAt: number;
   updatedAt: number;
+  /** Couleur d'accent de la carte. Absente = couleur du thème par défaut. */
+  color?: string;
+  /** URL d'une image de fond pour la carte de la grille. Absente = pas d'image. */
+  backgroundImageUrl?: string;
+  /** Épinglée en tête de liste, devant les grilles non épinglées. Absente = non épinglée. */
+  pinned?: boolean;
+  /** Grille archivée : masquée de la liste par défaut. Absente = active. */
+  archived?: boolean;
+}
+
+/** Une grille correspond à une recherche si son titre contient la requête
+ * (insensible à la casse). Une requête vide (ou blanche, une fois "trim"ée)
+ * correspond à tout par construction : `"...".includes("")` vaut toujours
+ * `true`, donc pas besoin d'un cas particulier explicite. */
+export function matchesSearch(grid: Grid, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return grid.title.toLowerCase().includes(q);
+}
+
+/** Fait remonter les grilles épinglées en tête, sans changer l'ordre relatif
+ * des grilles entre elles au sein d'un même groupe (tri stable) : une
+ * alternative rapide au glisser-déposer pour les grilles qu'on veut garder à
+ * portée de main. */
+export function sortByPinned(grids: Grid[]): Grid[] {
+  return [...grids].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
 }
 
 export function shuffle<T>(arr: T[]): T[] {

@@ -1,6 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildCells, type Grid } from "../lib/bingo";
 import { loadGrids, saveGrids } from "../lib/storage";
 import PlayView from "./PlayView";
@@ -221,5 +221,68 @@ describe("PlayView", () => {
     const grid = loadGrids()[0];
     expect(grid.cells.find((c) => c.free)?.marked).toBe(true);
     expect(grid.cells.filter((c) => !c.free).every((c) => !c.marked)).toBe(true);
+  });
+
+  describe("confetti de victoire", () => {
+    it("shows confetti when the banner first appears", async () => {
+      const user = userEvent.setup();
+      seedGrid();
+      render(<PlayView id="g1" />);
+      const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+      await user.click(cells[0]);
+      await user.click(cells[1]);
+      await user.click(cells[2]);
+
+      expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
+      expect(document.querySelector(".bingo-celebration")).toBeInTheDocument();
+    });
+
+    it("does not show confetti when mounting on an already-won grid", async () => {
+      const items = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+      const cells = buildCells(items, 3, false).map((c, i) => ({ ...c, marked: i < 3 }));
+      seedGrid({ cells });
+      render(<PlayView id="g1" />);
+
+      expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
+      expect(document.querySelector(".bingo-celebration")).not.toBeInTheDocument();
+    });
+
+    it("auto-hides the confetti after the celebration duration", () => {
+      vi.useFakeTimers();
+      seedGrid();
+      render(<PlayView id="g1" />);
+      const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+      fireEvent.click(cells[0]);
+      fireEvent.click(cells[1]);
+      fireEvent.click(cells[2]);
+
+      expect(document.querySelector(".bingo-celebration")).toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(1100);
+      });
+      expect(document.querySelector(".bingo-celebration")).not.toBeInTheDocument();
+      vi.useRealTimers();
+    });
+
+    it("shows confetti again for a second line completed after the first celebration ended", () => {
+      vi.useFakeTimers();
+      seedGrid();
+      render(<PlayView id="g1" />);
+      const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+      fireEvent.click(cells[0]);
+      fireEvent.click(cells[1]);
+      fireEvent.click(cells[2]); // completes the top row
+      act(() => {
+        vi.advanceTimersByTime(1100);
+      });
+      expect(document.querySelector(".bingo-celebration")).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByText(/bingo !/i)); // dismiss
+      fireEvent.click(cells[3]);
+      fireEvent.click(cells[6]); // completes the left column too
+
+      expect(document.querySelector(".bingo-celebration")).toBeInTheDocument();
+      vi.useRealTimers();
+    });
   });
 });
