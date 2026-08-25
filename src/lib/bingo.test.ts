@@ -6,6 +6,7 @@ import {
   neededCount,
   shuffle,
   sortByPinned,
+  WIN_RULES,
   type Cell,
   type Grid,
 } from "./bingo";
@@ -175,6 +176,63 @@ describe("checkWin", () => {
     expect(hasWin).toBe(true);
     expect([...winSet].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 6]);
   });
+
+  it('defaults to the "line" rule when none is given', () => {
+    const cells = makeCells(3, [0, 1, 2]);
+    expect(checkWin(cells, 3).hasWin).toBe(true);
+  });
+
+  it('applies the "line" rule explicitly the same way as the default', () => {
+    const cells = makeCells(3, [0, 1, 2]);
+    expect(checkWin(cells, 3, "line").hasWin).toBe(true);
+  });
+
+  describe('rule "blackout" (carton plein)', () => {
+    it("does not win with a complete line but an otherwise empty grid", () => {
+      const cells = makeCells(3, [0, 1, 2]);
+      expect(checkWin(cells, 3, "blackout").hasWin).toBe(false);
+    });
+
+    it("does not win with all but one cell marked", () => {
+      const cells = makeCells(3, [0, 1, 2, 3, 4, 5, 6, 7]);
+      expect(checkWin(cells, 3, "blackout").hasWin).toBe(false);
+    });
+
+    it("wins once every cell is marked, with winSet covering the whole grid", () => {
+      const cells = makeCells(3, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+      const { hasWin, winSet } = checkWin(cells, 3, "blackout");
+      expect(hasWin).toBe(true);
+      expect([...winSet].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    });
+  });
+
+  describe('rule "corners" (quatre coins)', () => {
+    it("does not win with only three of the four corners marked", () => {
+      // Corners of a 3x3 grid: 0, 2, 6, 8.
+      const cells = makeCells(3, [0, 2, 6]);
+      expect(checkWin(cells, 3, "corners").hasWin).toBe(false);
+    });
+
+    it("does not win from a fully marked line that isn't the corners", () => {
+      const cells = makeCells(3, [0, 1, 2]);
+      expect(checkWin(cells, 3, "corners").hasWin).toBe(false);
+    });
+
+    it("wins once all four corners are marked, with winSet covering exactly the corners", () => {
+      const cells = makeCells(3, [0, 2, 6, 8]);
+      const { hasWin, winSet } = checkWin(cells, 3, "corners");
+      expect(hasWin).toBe(true);
+      expect([...winSet].sort((a, b) => a - b)).toEqual([0, 2, 6, 8]);
+    });
+
+    it("computes the correct corner indexes for a different grid size", () => {
+      // Corners of a 5x5 grid: 0, 4, 20, 24.
+      const cells = makeCells(5, [0, 4, 20, 24]);
+      const { hasWin, winSet } = checkWin(cells, 5, "corners");
+      expect(hasWin).toBe(true);
+      expect([...winSet].sort((a, b) => a - b)).toEqual([0, 4, 20, 24]);
+    });
+  });
 });
 
 describe("matchesSearch", () => {
@@ -226,5 +284,17 @@ describe("sortByPinned", () => {
 
   it("returns an empty array unchanged", () => {
     expect(sortByPinned([])).toEqual([]);
+  });
+});
+
+describe("WIN_RULES", () => {
+  it("contient exactement les trois conditions de victoire attendues", () => {
+    // Valeurs littérales (pas de comparaison avec WIN_RULES lui-même) pour
+    // détecter un identifiant ou un libellé altéré par erreur.
+    expect(WIN_RULES).toEqual([
+      { id: "line", label: "ligne, colonne ou diagonale" },
+      { id: "blackout", label: "carton plein" },
+      { id: "corners", label: "quatre coins" },
+    ]);
   });
 });

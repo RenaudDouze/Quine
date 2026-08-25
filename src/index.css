@@ -158,6 +158,23 @@ button {
   color: var(--danger);
 }
 
+/* Mode plein écran (PlayView) */
+.focus-exit-btn {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--surface-border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
 /* Home / grid list */
 .grid-list {
   display: flex;
@@ -749,5 +766,39 @@ button {
   100% {
     transform: rotate(var(--angle)) translateY(-45vh) scale(0.4);
     opacity: 0;
+  }
+}
+
+/* Impression d'une grille (bouton "🖨️ Imprimer" de PlayView) : ne garde que
+   le titre et le carton, sans les boutons ni le fond dégradé de l'appli. */
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .topbar .icon-btn,
+  .topbar .btn,
+  .play-actions,
+  .bingo-banner,
+  .bingo-celebration,
+  .focus-exit-btn {
+    display: none !important;
+  }
+
+  .topbar {
+    position: static;
+    box-shadow: none;
+    justify-content: center;
+  }
+
+  .board-wrap {
+    padding: 0;
+  }
+
+  .cell,
+  .cell.marked,
+  .cell.free {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

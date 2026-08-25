@@ -42,6 +42,7 @@ async function openCustomize(user: ReturnType<typeof userEvent.setup>, title: st
 beforeEach(() => {
   localStorage.clear();
   window.location.hash = "";
+  window.history.pushState({}, "", "/");
 });
 
 afterEach(() => {
@@ -461,6 +462,41 @@ describe("HomeView", () => {
       const cards = screen.getAllByRole("button", { name: "Partager" });
       await user.click(cards[0]);
       expect(screen.getByText('Partager "Grille A"', { selector: "h2" })).toBeInTheDocument();
+    });
+  });
+
+  describe("raccourci PWA (?action=)", () => {
+    it("navigates to the editor for ?action=new", () => {
+      window.history.pushState({}, "", "/?action=new");
+      renderHome();
+      expect(window.location.hash).toBe("#editor");
+    });
+
+    it("opens the sync modal for ?action=sync", () => {
+      window.history.pushState({}, "", "/?action=sync");
+      renderHome();
+      expect(screen.getByText("Synchroniser mes grilles", { selector: "h2" })).toBeInTheDocument();
+    });
+
+    it("cleans the action param from the URL after handling it", () => {
+      window.history.pushState({}, "", "/?action=sync");
+      renderHome();
+      expect(window.location.search).toBe("");
+    });
+
+    it("does nothing when there is no action param", () => {
+      saveGrids([makeGrid({ title: "Ancienne" })]);
+      renderHome();
+      expect(window.location.hash).toBe("");
+      expect(screen.queryByText("Synchroniser mes grilles", { selector: "h2" })).not.toBeInTheDocument();
+    });
+
+    it("ignores an unknown action value", () => {
+      window.history.pushState({}, "", "/?action=bogus");
+      renderHome();
+      expect(window.location.hash).toBe("");
+      expect(screen.queryByText("Synchroniser mes grilles", { selector: "h2" })).not.toBeInTheDocument();
+      expect(window.location.search).toBe("");
     });
   });
 });

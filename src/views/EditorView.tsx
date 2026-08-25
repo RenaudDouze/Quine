@@ -1,5 +1,5 @@
 import { type FormEvent, useMemo, useState } from "react";
-import { buildCells, neededCount, type Grid } from "../lib/bingo";
+import { buildCells, neededCount, WIN_RULES, type Grid, type WinRule } from "../lib/bingo";
 import { pickColor } from "../lib/colors";
 import { loadGrids, saveGrids, uid } from "../lib/storage";
 import { navigate } from "../hooks/useHashRoute";
@@ -14,6 +14,7 @@ export default function EditorView({ id }: Props) {
   const [title, setTitle] = useState(existing?.title ?? "");
   const [size, setSize] = useState(existing?.size ?? 5);
   const [freeCenter, setFreeCenter] = useState(existing?.freeCenter ?? false);
+  const [winRule, setWinRule] = useState<WinRule>(existing?.winRule ?? "line");
   const [itemsText, setItemsText] = useState((existing?.items ?? []).join("\n"));
 
   const canFree = size % 2 === 1;
@@ -47,6 +48,7 @@ export default function EditorView({ id }: Props) {
       grid.freeCenter = effectiveFreeCenter;
       grid.items = lines;
       grid.cells = buildCells(lines, size, effectiveFreeCenter);
+      grid.winRule = winRule;
       grid.updatedAt = now;
     } else {
       grid = {
@@ -59,6 +61,7 @@ export default function EditorView({ id }: Props) {
         createdAt: now,
         updatedAt: now,
         color: pickColor(grids.length),
+        winRule,
       };
       grids.push(grid);
     }
@@ -109,6 +112,17 @@ export default function EditorView({ id }: Props) {
             onChange={(e) => setFreeCenter(e.target.checked)}
           />
           <span>Case centrale libre ("GRATUIT") — grilles de taille impaire</span>
+        </label>
+
+        <label className="field">
+          <span>Condition de victoire</span>
+          <select value={winRule} onChange={(e) => setWinRule(e.target.value as WinRule)}>
+            {WIN_RULES.map((rule) => (
+              <option key={rule.id} value={rule.id}>
+                {rule.label}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="field">

@@ -2,8 +2,13 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildCells, type Grid } from "../lib/bingo";
+import { downloadGridSvg } from "../lib/gridImage";
 import { loadGrids, saveGrids } from "../lib/storage";
 import PlayView from "./PlayView";
+
+vi.mock("../lib/gridImage", () => ({
+  downloadGridSvg: vi.fn(),
+}));
 
 function seedGrid(overrides: Partial<Grid> = {}): Grid {
   const size = overrides.size ?? 3;
@@ -27,6 +32,7 @@ function seedGrid(overrides: Partial<Grid> = {}): Grid {
 beforeEach(() => {
   localStorage.clear();
   window.location.hash = "";
+  vi.mocked(downloadGridSvg).mockClear();
 });
 
 afterEach(() => {
@@ -222,6 +228,234 @@ describe("PlayView", () => {
     const grid = loadGrids()[0];
     expect(grid.cells.find((c) => c.free)?.marked).toBe(true);
     expect(grid.cells.filter((c) => !c.free).every((c) => !c.marked)).toBe(true);
+  });
+
+  describe("condition de victoire personnalisée", () => {
+    it('wins via "carton plein" only once every cell is marked, not from a single complete line', async () => {
+      const user = userEvent.setup();
+      seedGrid({ winRule: "blackout" });
+      render(<PlayView id="g1" />);
+      const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+
+      await user.click(cells[0]);
+      await user.click(cells[1]);
+      await user.click(cells[2]);
+      expect(screen.queryByText(/bingo !/i)).not.toBeInTheDocument();
+
+      for (const cell of cells.slice(3)) {
+        await user.click(cell);
+      }
+      expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
+    });
+
+    it('wins via "quatre coins" once all four corners are marked, not from an unrelated complete line', async () => {
+      const user = userEvent.setup();
+      seedGrid({ winRule: "corners" });
+      render(<PlayView id="g1" />);
+      const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+
+      // Full top row (0, 1, 2): includes two corners (0, 2) but not a win yet.
+      await user.click(cells[0]);
+      await user.click(cells[1]);
+      await user.click(cells[2]);
+      expect(screen.queryByText(/bingo !/i)).not.toBeInTheDocument();
+
+      // Corners of a 3x3 grid are 0, 2, 6, 8 — complete the remaining two.
+      await user.click(cells[6]);
+      await user.click(cells[8]);
+      expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("export et impression", () => {
+    it("downloads an SVG image of the current grid when Exporter en image is clicked", async () => {
+      const user = userEvent.setup();
+      const grid = seedGrid({ title: "À exporter" });
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Exporter en image" }));
+
+      expect(downloadGridSvg).toHaveBeenCalledTimes(1);
+      expect(downloadGridSvg).toHaveBeenCalledWith(expect.objectContaining({ title: grid.title }));
+    });
+
+    it("calls window.print when Imprimer is clicked", async () => {
+      const user = userEvent.setup();
+      const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Imprimer" }));
+
+      expect(printSpy).toHaveBeenCalledTimes(1);
+      printSpy.mockRestore();
+    });
+
+    it("hides the export/print/edit buttons in focus mode", async () => {
+      const user = userEvent.setup();
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+
+      expect(screen.queryByRole("button", { name: "Exporter en image" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Imprimer" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("mode plein écran", () => {
+    afterEach(() => {
+      // @ts-expect-error -- pas typé sur Document par défaut, ajouté par le composant
+      delete document.documentElement.requestFullscreen;
+      // @ts-expect-error -- idem
+      delete document.exitFullscreen;
+    });
+
+    it("hides the topbar and play-actions and shows an exit button while active", async () => {
+      const user = userEvent.setup();
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+
+      expect(screen.queryByRole("button", { name: "← Retour" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /remélanger/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Quitter le mode plein écran" })).toBeInTheDocument();
+    });
+
+    it("returns to the normal view when the exit button is clicked", async () => {
+      const user = userEvent.setup();
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+      await user.click(screen.getByRole("button", { name: "Quitter le mode plein écran" }));
+
+      expect(screen.getByRole("button", { name: "← Retour" })).toBeInTheDocument();
+    });
+
+    it("returns to the normal view on Escape while active", async () => {
+      const user = userEvent.setup();
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      expect(screen.getByRole("button", { name: "← Retour" })).toBeInTheDocument();
+    });
+
+    it("ignores a key other than Escape while active", async () => {
+      const user = userEvent.setup();
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+      fireEvent.keyDown(document, { key: "Tab" });
+
+      expect(screen.getByRole("button", { name: "Quitter le mode plein écran" })).toBeInTheDocument();
+    });
+
+    it("ignores Escape while not active", () => {
+      seedGrid();
+      render(<PlayView id="g1" />);
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      expect(screen.getByRole("button", { name: "← Retour" })).toBeInTheDocument();
+    });
+
+    it("requests native fullscreen when entering focus mode", async () => {
+      const user = userEvent.setup();
+      const requestFullscreen = vi.fn().mockResolvedValue(undefined);
+      document.documentElement.requestFullscreen = requestFullscreen;
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+
+      expect(requestFullscreen).toHaveBeenCalledTimes(1);
+    });
+
+    it("silently ignores a rejected fullscreen request", async () => {
+      const user = userEvent.setup();
+      document.documentElement.requestFullscreen = vi.fn().mockRejectedValue(new Error("nope"));
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await act(async () => {
+        await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+      });
+
+      expect(screen.getByRole("button", { name: "Quitter le mode plein écran" })).toBeInTheDocument();
+    });
+
+    it("exits native fullscreen when leaving focus mode while still in it", async () => {
+      const user = userEvent.setup();
+      document.documentElement.requestFullscreen = vi.fn().mockResolvedValue(undefined);
+      const exitFullscreen = vi.fn().mockResolvedValue(undefined);
+      document.exitFullscreen = exitFullscreen;
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+
+      Object.defineProperty(document, "fullscreenElement", {
+        value: document.documentElement,
+        configurable: true,
+      });
+      await user.click(screen.getByRole("button", { name: "Quitter le mode plein écran" }));
+
+      expect(exitFullscreen).toHaveBeenCalledTimes(1);
+      Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+    });
+
+    it("does not call exitFullscreen when leaving focus mode outside of native fullscreen", async () => {
+      const user = userEvent.setup();
+      const exitFullscreen = vi.fn().mockResolvedValue(undefined);
+      document.exitFullscreen = exitFullscreen;
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+      await user.click(screen.getByRole("button", { name: "Quitter le mode plein écran" }));
+
+      expect(exitFullscreen).not.toHaveBeenCalled();
+    });
+
+    it("silently ignores a rejected exitFullscreen call", async () => {
+      const user = userEvent.setup();
+      document.exitFullscreen = vi.fn().mockRejectedValue(new Error("nope"));
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+
+      Object.defineProperty(document, "fullscreenElement", {
+        value: document.documentElement,
+        configurable: true,
+      });
+      await act(async () => {
+        await user.click(screen.getByRole("button", { name: "Quitter le mode plein écran" }));
+      });
+
+      expect(screen.getByRole("button", { name: "← Retour" })).toBeInTheDocument();
+      Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+    });
+
+    it("syncs back to the normal view when fullscreen is exited natively (fullscreenchange event)", async () => {
+      const user = userEvent.setup();
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+
+      fireEvent(document, new Event("fullscreenchange"));
+
+      expect(screen.getByRole("button", { name: "← Retour" })).toBeInTheDocument();
+    });
+
+    it("does not react to fullscreenchange while still in native fullscreen", async () => {
+      const user = userEvent.setup();
+      seedGrid();
+      render(<PlayView id="g1" />);
+      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+
+      Object.defineProperty(document, "fullscreenElement", {
+        value: document.documentElement,
+        configurable: true,
+      });
+      fireEvent(document, new Event("fullscreenchange"));
+
+      expect(screen.queryByRole("button", { name: "← Retour" })).not.toBeInTheDocument();
+      Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+    });
   });
 
   describe("couleur personnalisée", () => {

@@ -1,6 +1,6 @@
 import { Reorder, useDragControls } from "framer-motion";
 import type { CSSProperties } from "react";
-import type { Grid } from "../lib/bingo";
+import { WIN_RULES, type Grid } from "../lib/bingo";
 
 interface Props {
   grid: Grid;
@@ -56,6 +56,9 @@ export default function GridCard({ grid, draggable, onPlay, onEdit, onShare, onC
         <span className="card-meta">
           {grid.size} × {grid.size}
           {grid.freeCenter ? " · case libre" : ""}
+          {grid.winRule && grid.winRule !== "line"
+            ? ` · ${WIN_RULES.find((r) => r.id === grid.winRule)?.label}`
+            : ""}
         </span>
       </button>
 
