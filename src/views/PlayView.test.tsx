@@ -157,6 +157,22 @@ describe("PlayView", () => {
     expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
   });
 
+  it("keeps the dismissed banner hidden when unmarking a cell, even if a different line stays complete", async () => {
+    const user = userEvent.setup();
+    const items = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+    // Both the top row (0,1,2) and the middle row (3,4,5) are already
+    // complete at once.
+    const cells = buildCells(items, 3, false).map((c, i) => ({ ...c, marked: i < 6 }));
+    seedGrid({ cells });
+    render(<PlayView id="g1" />);
+    expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
+
+    await user.click(screen.getByText(/bingo !/i)); // dismiss
+    const boardCells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+    await user.click(boardCells[3]); // unmark a cell in the middle row; the top row is still complete
+    expect(screen.queryByText(/bingo !/i)).not.toBeInTheDocument();
+  });
+
   it("keeps the dismissed banner hidden when toggling a cell outside the winning line", async () => {
     const user = userEvent.setup();
     seedGrid();
