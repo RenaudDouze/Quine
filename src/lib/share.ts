@@ -63,6 +63,10 @@ function normalizeGrid(raw: Partial<Grid>): Grid {
     cells,
     createdAt: typeof raw.createdAt === "number" ? raw.createdAt : timestamp,
     updatedAt: timestamp,
+    color: typeof raw.color === "string" ? raw.color : undefined,
+    backgroundImageUrl: typeof raw.backgroundImageUrl === "string" ? raw.backgroundImageUrl : undefined,
+    pinned: !!raw.pinned,
+    archived: !!raw.archived,
   };
 }
 
@@ -82,15 +86,22 @@ export function parseBackupJson(text: string): Grid[] | null {
 }
 
 // Format compact utilisé pour le lien/QR code : uniquement de quoi
-// régénérer une grille "fraîche" (titre, taille, case libre, mots) —
-// mélangée et non cochée côté destinataire. On partage un modèle à jouer,
+// régénérer une grille "fraîche" (titre, taille, case libre, mots, apparence)
+// — mélangée et non cochée côté destinataire. On partage un modèle à jouer,
 // pas sa progression exacte (voir downloadBackup pour une sauvegarde
-// complète avec les cases cochées).
+// complète avec les cases cochées). `pinned`/`archived` sont volontairement
+// exclus : ce sont des préférences d'organisation de LA liste de l'expéditeur
+// (épinglée en haut de son écran, masquée dans ses archives), pas des
+// attributs de la grille elle-même — les transmettre ferait atterrir la
+// copie du destinataire épinglée ou, pire, cachée dans un onglet Archivés
+// qu'il ne pense pas à ouvrir après avoir scanné un QR code.
 interface CompactGrid {
   t: string;
   s: number;
   f?: 1;
   i: string[];
+  k?: string;
+  u?: string;
 }
 
 function toCompact(grid: Grid): CompactGrid {
@@ -99,6 +110,8 @@ function toCompact(grid: Grid): CompactGrid {
     s: grid.size,
     ...(grid.freeCenter ? { f: 1 } : {}),
     i: grid.items,
+    ...(grid.color ? { k: grid.color } : {}),
+    ...(grid.backgroundImageUrl ? { u: grid.backgroundImageUrl } : {}),
   };
 }
 
@@ -108,6 +121,8 @@ function fromCompact(raw: CompactGrid): Grid {
     size: raw.s,
     freeCenter: raw.f === 1,
     items: raw.i,
+    color: raw.k,
+    backgroundImageUrl: raw.u,
   });
 }
 

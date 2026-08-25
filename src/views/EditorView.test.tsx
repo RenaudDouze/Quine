@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Grid } from "../lib/bingo";
+import { COLORS } from "../lib/colors";
 import { loadGrids, saveGrids } from "../lib/storage";
 import EditorView from "./EditorView";
 
@@ -91,6 +92,33 @@ describe("EditorView — creating a grid", () => {
     await user.selectOptions(screen.getByRole("combobox"), "4");
     expect(checkbox).not.toBeChecked();
     expect(checkbox).toBeDisabled();
+  });
+
+  async function generateGrid(title: string) {
+    const user = userEvent.setup();
+    render(<EditorView />);
+    await user.type(screen.getByPlaceholderText(/bingo réunion/i), title);
+    await user.selectOptions(screen.getByRole("combobox"), "3");
+    await user.type(
+      screen.getByPlaceholderText(/écrivez chaque phrase/i),
+      "A\nB\nC\nD\nE\nF\nG\nH\nI"
+    );
+    await user.click(screen.getByRole("button", { name: /générer la grille/i }));
+  }
+
+  it("assigns the first palette color to the first grid created", async () => {
+    await generateGrid("Première");
+    expect(loadGrids()[0].color).toBe(COLORS[0]);
+  });
+
+  it("cycles through the color palette based on the number of existing grids", async () => {
+    saveGrids([
+      { id: "a", title: "A", size: 3, freeCenter: false, items: [], cells: [], createdAt: 1, updatedAt: 1 },
+      { id: "b", title: "B", size: 3, freeCenter: false, items: [], cells: [], createdAt: 1, updatedAt: 1 },
+    ]);
+    await generateGrid("Troisième");
+    const created = loadGrids().find((g) => g.title === "Troisième");
+    expect(created?.color).toBe(COLORS[2]);
   });
 });
 

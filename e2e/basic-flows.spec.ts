@@ -33,6 +33,7 @@ test('completing a row triggers a bingo', async ({ page }) => {
   await page.locator('.cell').nth(2).click()
 
   await expect(page.getByText('BINGO !')).toBeVisible()
+  await expect(page.locator('.bingo-celebration')).toBeVisible()
 })
 
 test('dismissing the bingo banner keeps it hidden when toggling an unrelated cell', async ({ page }) => {
@@ -97,13 +98,15 @@ test('can edit, duplicate and delete a saved grid from the home screen', async (
   await page.goto('/')
 
   const card = page.locator('.grid-item').filter({ has: page.getByText('À dupliquer', { exact: true }) })
-  await card.getByRole('button', { name: 'Dupliquer', exact: true }).click()
+  await card.getByRole('button', { name: 'Personnaliser', exact: true }).click()
+  await page.getByRole('button', { name: /Dupliquer cette grille/ }).click()
   await expect(page.getByText('À dupliquer (copie)', { exact: true })).toBeVisible()
 
   const copyCard = page
     .locator('.grid-item')
     .filter({ has: page.getByText('À dupliquer (copie)', { exact: true }) })
-  page.once('dialog', (dialog) => dialog.accept())
-  await copyCard.getByRole('button', { name: 'Supprimer', exact: true }).click()
+  await copyCard.getByRole('button', { name: 'Personnaliser', exact: true }).click()
+  await page.getByRole('button', { name: /Supprimer cette grille/ }).click()
   await expect(page.getByText('À dupliquer (copie)', { exact: true })).toHaveCount(0)
+  await expect(page.getByText(/supprimée/)).toBeVisible()
 })

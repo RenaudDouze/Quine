@@ -1,5 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildCells, checkWin, neededCount, shuffle, type Cell } from "./bingo";
+import {
+  buildCells,
+  checkWin,
+  matchesSearch,
+  neededCount,
+  shuffle,
+  sortByPinned,
+  type Cell,
+  type Grid,
+} from "./bingo";
+
+function makeGrid(overrides: Partial<Grid> = {}): Grid {
+  return {
+    id: overrides.id ?? "g1",
+    title: overrides.title ?? "Grille",
+    size: 3,
+    freeCenter: false,
+    items: [],
+    cells: [],
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  };
+}
 
 describe("neededCount", () => {
   it("returns size*size for an even grid regardless of freeCenter", () => {
@@ -151,5 +174,57 @@ describe("checkWin", () => {
     const { hasWin, winSet } = checkWin(cells, 3);
     expect(hasWin).toBe(true);
     expect([...winSet].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 6]);
+  });
+});
+
+describe("matchesSearch", () => {
+  it("matches any grid when the query is empty", () => {
+    expect(matchesSearch(makeGrid({ title: "Bingo réunion" }), "")).toBe(true);
+  });
+
+  it("matches any grid when the query is only whitespace", () => {
+    expect(matchesSearch(makeGrid({ title: "Bingo réunion" }), "   ")).toBe(true);
+  });
+
+  it("matches a title containing the query, case-insensitively", () => {
+    expect(matchesSearch(makeGrid({ title: "Bingo Réunion" }), "réunion")).toBe(true);
+    expect(matchesSearch(makeGrid({ title: "Bingo Réunion" }), "RÉUNION")).toBe(true);
+  });
+
+  it("does not match a title that lacks the query", () => {
+    expect(matchesSearch(makeGrid({ title: "Bingo réunion" }), "vacances")).toBe(false);
+  });
+
+  it("trims surrounding whitespace from the query before matching", () => {
+    expect(matchesSearch(makeGrid({ title: "Bingo réunion" }), "  réunion  ")).toBe(true);
+  });
+});
+
+describe("sortByPinned", () => {
+  it("moves pinned grids to the front", () => {
+    const a = makeGrid({ id: "a", pinned: false });
+    const b = makeGrid({ id: "b", pinned: true });
+    const c = makeGrid({ id: "c", pinned: false });
+    expect(sortByPinned([a, b, c]).map((g) => g.id)).toEqual(["b", "a", "c"]);
+  });
+
+  it("keeps the relative order within pinned and within unpinned grids (stable sort)", () => {
+    const a = makeGrid({ id: "a", pinned: true });
+    const b = makeGrid({ id: "b", pinned: false });
+    const c = makeGrid({ id: "c", pinned: true });
+    const d = makeGrid({ id: "d", pinned: false });
+    expect(sortByPinned([a, b, c, d]).map((g) => g.id)).toEqual(["a", "c", "b", "d"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const a = makeGrid({ id: "a", pinned: false });
+    const b = makeGrid({ id: "b", pinned: true });
+    const input = [a, b];
+    sortByPinned(input);
+    expect(input).toEqual([a, b]);
+  });
+
+  it("returns an empty array unchanged", () => {
+    expect(sortByPinned([])).toEqual([]);
   });
 });

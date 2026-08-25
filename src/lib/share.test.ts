@@ -250,6 +250,44 @@ describe("parseBackupJson", () => {
     expect(result?.[0].updatedAt).toBe(new Date(2026, 7, 22).getTime());
     vi.useRealTimers();
   });
+
+  it("conserve la couleur, l'image de fond, l'épinglage et l'archivage fournis (sauvegarde JSON = fidélité totale)", () => {
+    const result = parseBackupJson(
+      JSON.stringify([
+        {
+          title: "A",
+          size: 3,
+          items: [],
+          color: "#db2777",
+          backgroundImageUrl: "https://example.com/bg.jpg",
+          pinned: true,
+          archived: true,
+        },
+      ])
+    );
+    expect(result?.[0]).toMatchObject({
+      color: "#db2777",
+      backgroundImageUrl: "https://example.com/bg.jpg",
+      pinned: true,
+      archived: true,
+    });
+  });
+
+  it("laisse couleur et image de fond indéfinies, et pinned/archived à false, si absents", () => {
+    const result = parseBackupJson(JSON.stringify([{ title: "A", size: 3, items: [] }]));
+    expect(result?.[0].color).toBeUndefined();
+    expect(result?.[0].backgroundImageUrl).toBeUndefined();
+    expect(result?.[0].pinned).toBe(false);
+    expect(result?.[0].archived).toBe(false);
+  });
+
+  it("ignore une couleur ou une image de fond mal formées (pas une chaîne)", () => {
+    const result = parseBackupJson(
+      JSON.stringify([{ title: "A", size: 3, items: [], color: 42, backgroundImageUrl: true }])
+    );
+    expect(result?.[0].color).toBeUndefined();
+    expect(result?.[0].backgroundImageUrl).toBeUndefined();
+  });
 });
 
 describe("encodeGridsToParam / decodeGridsFromParam", () => {
@@ -335,6 +373,31 @@ describe("encodeGridsToParam / decodeGridsFromParam", () => {
   it("retourne null si le contenu décodé n'est pas un tableau", () => {
     const notAnArray = btoa(JSON.stringify({ t: "x" }));
     expect(decodeGridsFromParam(notAnArray)).toBeNull();
+  });
+
+  it("fait un aller-retour fidèle pour la couleur et l'image de fond", () => {
+    const grids = [
+      makeGrid({ color: "#0d9488", backgroundImageUrl: "https://example.com/bg.jpg" }),
+    ];
+    const encoded = encodeGridsToParam(grids);
+    const decoded = decodeGridsFromParam(encoded);
+    expect(decoded?.[0].color).toBe("#0d9488");
+    expect(decoded?.[0].backgroundImageUrl).toBe("https://example.com/bg.jpg");
+  });
+
+  it("omet la couleur et l'image de fond du lien compact quand elles sont absentes", () => {
+    const encoded = encodeGridsToParam([makeGrid({ color: undefined, backgroundImageUrl: undefined })]);
+    const decoded = decodeGridsFromParam(encoded);
+    expect(decoded?.[0].color).toBeUndefined();
+    expect(decoded?.[0].backgroundImageUrl).toBeUndefined();
+  });
+
+  it("ne transmet jamais l'épinglage ni l'archivage via le lien/QR (préférences de la liste de l'expéditeur)", () => {
+    const grids = [makeGrid({ pinned: true, archived: true })];
+    const encoded = encodeGridsToParam(grids);
+    const decoded = decodeGridsFromParam(encoded);
+    expect(decoded?.[0].pinned).toBe(false);
+    expect(decoded?.[0].archived).toBe(false);
   });
 
   it("retombe sur items=[] si le champ \"i\" décodé n'est pas un tableau (payload corrompu)", () => {

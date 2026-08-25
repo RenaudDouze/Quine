@@ -13,6 +13,10 @@
   --danger: #e11d48;
   --gold: #f59e0b;
   --font-ui: "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* Opacité du voile posé sur une image de fond de carte, pour garder le
+     texte lisible quelle que soit la photo choisie ; plus fort en sombre
+     (le texte clair a besoin d'un fond plus opaque pour rester net). */
+  --bg-overlay-opacity: 0.55;
   font-family: var(--font-ui);
 }
 
@@ -28,6 +32,7 @@
   --text: #f1f5f9;
   --text-dim: #94a3b8;
   --accent-dim: #241f3a;
+  --bg-overlay-opacity: 0.86;
 }
 
 * {
@@ -162,14 +167,57 @@ button {
 }
 
 .grid-item {
+  position: relative;
+  /* Isole le contexte d'empilement local : `.grid-item-bg` (z-index négatif)
+     doit rester derrière le titre/les actions mais au-dessus du fond `--surface`
+     posé juste ici, sans dépendre de l'ordre des frères dans tout le document. */
+  isolation: isolate;
   display: flex;
   align-items: stretch;
   gap: 8px;
   background: var(--surface);
   border: 1px solid var(--surface-border);
+  border-left: 4px solid var(--card-accent, var(--surface-border));
   border-radius: 22px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
   overflow: hidden;
+}
+
+.grid-item-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-size: cover;
+  background-position: center;
+  pointer-events: none;
+}
+
+.grid-item-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--surface);
+  opacity: var(--bg-overlay-opacity);
+}
+
+.card-pin {
+  font-size: 0.85em;
+  margin-right: 4px;
+}
+
+.drag-handle {
+  align-self: stretch;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 1.1rem;
+  padding: 0 4px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 .card {
@@ -532,4 +580,174 @@ button {
   font-size: 0.85rem;
   text-align: center;
   margin: 12px 0 0;
+}
+
+.modal-hint--locked {
+  background: var(--bg-2);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 10px;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+/* Personnalisation : palette de couleurs */
+.settings-color-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.color-option {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-option.selected {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.color-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-section--danger h3 {
+  color: var(--danger);
+}
+
+.modal-btn--danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.modal-btn--danger:not(:disabled):hover,
+.modal-btn--danger:not(:disabled):active {
+  background: color-mix(in srgb, var(--danger) 15%, var(--surface));
+}
+
+/* Recherche de grille */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.search-bar input {
+  flex: 1;
+  font: inherit;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.search-bar input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Onglets Actives / Archivées */
+.archive-toggle {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  margin-bottom: 14px;
+}
+
+.archive-toggle-btn {
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.archive-toggle-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+/* Message d'annulation après une action destructrice */
+.undo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: calc(100% - 32px);
+  background: var(--text);
+  color: var(--surface);
+  padding: 12px 18px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+  animation: fadeIn 0.2s ease;
+}
+
+.undo-toast span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.undo-toast button {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  padding: 0;
+}
+
+/* Confetti de victoire */
+.bingo-celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bingo-confetti {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px;
+  border-radius: 2px;
+  background: var(--color);
+  opacity: 0;
+  animation: bingo-confetti-fly 1100ms ease-out forwards;
+  animation-delay: var(--delay);
+}
+
+@keyframes bingo-confetti-fly {
+  0% {
+    transform: rotate(var(--angle)) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--angle)) translateY(-45vh) scale(0.4);
+    opacity: 0;
+  }
 }

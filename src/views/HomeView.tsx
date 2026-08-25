@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Reorder } from "framer-motion";
 import type { ThemePreference } from "../App";
+import CustomizeModal from "../components/CustomizeModal";
+import GridCard from "../components/GridCard";
 import ShareModal from "../components/ShareModal";
-import type { Grid } from "../lib/bingo";
+import { matchesSearch, sortByPinned, type Grid } from "../lib/bingo";
 import { loadGrids, saveGrids, uid } from "../lib/storage";
 import { navigate } from "../hooks/useHashRoute";
 
@@ -9,46 +12,108 @@ const THEME_ICON: Record<ThemePreference, string> = { system: "🌓", light: "�
 const THEME_LABEL: Record<ThemePreference, string> = { system: "Auto", light: "Clair", dark: "Sombre" };
 const NEXT_THEME: Record<ThemePreference, ThemePreference> = { system: "light", light: "dark", dark: "system" };
 
+const UNDO_TIMEOUT_MS = 5000;
+
 interface Props {
   themePreference: ThemePreference;
   onThemePreferenceChange: (next: ThemePreference) => void;
 }
 
 export default function HomeView({ themePreference, onThemePreferenceChange }: Props) {
-  const [grids, setGrids] = useState<Grid[]>(() =>
-    loadGrids().sort((a, b) => b.updatedAt - a.updatedAt)
-  );
+  const [grids, setGrids] = useState<Grid[]>(() => loadGrids());
   const [syncOpen, setSyncOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<Grid | null>(null);
+  const [customizeTarget, setCustomizeTarget] = useState<Grid | null>(null);
 
-  function refresh() {
-    setGrids(loadGrids().sort((a, b) => b.updatedAt - a.updatedAt));
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  // Bascule l'ensemble de la liste (archivées masquées par défaut) ; la
+  // recherche filtre ensuite par titre à l'intérieur de la vue active.
+  const [archiveView, setArchiveView] = useState<"active" | "archived">("active");
+
+  // Garde un instantané des grilles avant une suppression, pour permettre de
+  // l'annuler pendant quelques secondes via le message qui apparaît en bas
+  // d'écran, plutôt qu'un `window.confirm()` bloquant avant l'action.
+  const [undo, setUndo] = useState<{ label: string; grids: Grid[] } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  function persist(next: Grid[]) {
+    saveGrids(next);
+    setGrids(next);
   }
 
+  function pushUndo(label: string) {
+    setUndo({ label, grids });
+    clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setUndo(null), UNDO_TIMEOUT_MS);
+  }
+
+  // N'est rendu accessible que via le bouton du message d'annulation, qui
+  // n'existe dans le DOM que lorsque `undo` est déjà défini.
+  function handleUndo() {
+    persist(undo!.grids);
+    setUndo(null);
+    clearTimeout(undoTimer.current);
+  }
+
+  function closeSearch() {
+    setSearchOpen(false);
+    setSearchQuery("");
+  }
+
+  const archivedCount = grids.filter((g) => g.archived).length;
+  const filteredGrids = grids.filter(
+    (g) => (archiveView === "archived" ? !!g.archived : !g.archived) && matchesSearch(g, searchQuery)
+  );
+  const sortedGrids = sortByPinned(filteredGrids);
+  // Le glisser-déposer réordonne `sortedGrids` (le sous-ensemble affiché) et
+  // enregistre directement ce résultat comme nouvelle liste complète : ça ne
+  // reste cohérent que si ce sous-ensemble couvre déjà tout le reste (pas de
+  // recherche, aucune grille archivée qui resterait en dehors du champ). Dans
+  // tout autre cas la poignée est masquée pour éviter d'écraser silencieusement
+  // le classement par un simple sous-ensemble filtré.
+  const draggable = searchQuery.trim() === "" && filteredGrids.length === grids.length;
+
   function handleDuplicate(grid: Grid) {
-    const all = loadGrids();
     const copy: Grid = {
       ...JSON.parse(JSON.stringify(grid)),
       id: uid(),
       title: grid.title + " (copie)",
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      // Une copie ne doit pas hériter des préférences d'organisation de
+      // l'originale : épinglée, elle bousculerait le haut de liste sans
+      // qu'on l'ait demandé ; archivée, elle disparaîtrait aussitôt créée
+      // dans l'onglet Archivées, sans indice visible pour l'utilisateur.
+      pinned: false,
+      archived: false,
     };
-    all.push(copy);
-    saveGrids(all);
-    refresh();
+    persist([...grids, copy]);
   }
 
   function handleDelete(grid: Grid) {
-    if (confirm(`Supprimer la grille "${grid.title}" ?`)) {
-      saveGrids(loadGrids().filter((g) => g.id !== grid.id));
-      refresh();
-    }
+    pushUndo(`Grille « ${grid.title} » supprimée`);
+    persist(grids.filter((g) => g.id !== grid.id));
   }
 
   function handleImport(imported: Grid[], mode: "replace" | "merge") {
-    saveGrids(mode === "replace" ? imported : [...loadGrids(), ...imported]);
-    refresh();
+    persist(mode === "replace" ? imported : [...grids, ...imported]);
+  }
+
+  function setColor(id: string, color: string) {
+    persist(grids.map((g) => (g.id === id ? { ...g, color } : g)));
+  }
+
+  function setBackgroundImage(id: string, url: string | undefined) {
+    persist(grids.map((g) => (g.id === id ? { ...g, backgroundImageUrl: url } : g)));
+  }
+
+  function togglePin(id: string) {
+    persist(grids.map((g) => (g.id === id ? { ...g, pinned: !g.pinned } : g)));
+  }
+
+  function toggleArchive(id: string) {
+    persist(grids.map((g) => (g.id === id ? { ...g, archived: !g.archived } : g)));
   }
 
   return (
@@ -63,6 +128,16 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
           >
             {THEME_ICON[themePreference]}
           </button>
+          {grids.length > 0 && (
+            <button
+              className="icon-btn"
+              onClick={() => setSearchOpen((v) => !v)}
+              aria-label="Rechercher"
+              title="Rechercher"
+            >
+              🔍
+            </button>
+          )}
           <button
             className="icon-btn"
             onClick={() => setSyncOpen(true)}
@@ -77,61 +152,76 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
         </div>
       </header>
 
-      {grids.length === 0 ? (
-        <div className="empty-state">
-          <p>Aucune grille pour le moment.</p>
-          <button className="btn btn-primary" onClick={() => navigate("editor")}>
-            Créer ma première grille
+      {(archivedCount > 0 || archiveView === "archived") && (
+        <div className="archive-toggle" role="tablist" aria-label="Filtrer par statut">
+          <button
+            role="tab"
+            aria-selected={archiveView === "active"}
+            className={`archive-toggle-btn${archiveView === "active" ? " active" : ""}`}
+            onClick={() => setArchiveView("active")}
+          >
+            Actives
+          </button>
+          <button
+            role="tab"
+            aria-selected={archiveView === "archived"}
+            className={`archive-toggle-btn${archiveView === "archived" ? " active" : ""}`}
+            onClick={() => setArchiveView("archived")}
+          >
+            Archivées{archivedCount > 0 ? ` (${archivedCount})` : ""}
           </button>
         </div>
-      ) : (
-        <div className="grid-list">
-          {grids.map((grid) => (
-            <div className="grid-item" key={grid.id}>
-              <button className="card" onClick={() => navigate("play", grid.id)}>
-                <span className="card-title">{grid.title}</span>
-                <span className="card-meta">
-                  {grid.size} × {grid.size}
-                  {grid.freeCenter ? " · case libre" : ""}
-                </span>
-              </button>
-              <div className="card-actions">
-                <button
-                  className="icon-btn"
-                  title="Modifier"
-                  aria-label="Modifier"
-                  onClick={() => navigate("editor", grid.id)}
-                >
-                  ✏️
-                </button>
-                <button
-                  className="icon-btn"
-                  title="Dupliquer"
-                  aria-label="Dupliquer"
-                  onClick={() => handleDuplicate(grid)}
-                >
-                  📋
-                </button>
-                <button
-                  className="icon-btn"
-                  title="Partager"
-                  aria-label="Partager"
-                  onClick={() => setShareTarget(grid)}
-                >
-                  📤
-                </button>
-                <button
-                  className="icon-btn icon-btn-danger"
-                  title="Supprimer"
-                  aria-label="Supprimer"
-                  onClick={() => handleDelete(grid)}
-                >
-                  🗑️
-                </button>
-              </div>
-            </div>
-          ))}
+      )}
+
+      {searchOpen && grids.length > 0 && (
+        <div className="search-bar">
+          <input
+            autoFocus
+            type="text"
+            placeholder="Rechercher une grille…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") closeSearch();
+            }}
+          />
+          <button className="modal-close" onClick={closeSearch} aria-label="Fermer la recherche">
+            ✕
+          </button>
         </div>
+      )}
+
+      {filteredGrids.length === 0 ? (
+        <div className="empty-state">
+          {grids.length === 0 ? (
+            <>
+              <p>Aucune grille pour le moment.</p>
+              <button className="btn btn-primary" onClick={() => navigate("editor")}>
+                Créer ma première grille
+              </button>
+            </>
+          ) : searchQuery.trim() !== "" ? (
+            <p>Aucune grille ne correspond à « {searchQuery.trim()} ».</p>
+          ) : archiveView === "archived" ? (
+            <p>Aucune grille archivée.</p>
+          ) : (
+            <p>Toutes tes grilles sont archivées.</p>
+          )}
+        </div>
+      ) : (
+        <Reorder.Group as="div" axis="y" values={sortedGrids} onReorder={persist} className="grid-list">
+          {sortedGrids.map((grid) => (
+            <GridCard
+              key={grid.id}
+              grid={grid}
+              draggable={draggable}
+              onPlay={() => navigate("play", grid.id)}
+              onEdit={() => navigate("editor", grid.id)}
+              onShare={() => setShareTarget(grid)}
+              onCustomize={() => setCustomizeTarget(grid)}
+            />
+          ))}
+        </Reorder.Group>
       )}
 
       {syncOpen && (
@@ -156,6 +246,26 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
           qrAlt={`QR code de la grille ${shareTarget.title}`}
           onClose={() => setShareTarget(null)}
         />
+      )}
+
+      {customizeTarget && (
+        <CustomizeModal
+          grid={customizeTarget}
+          onClose={() => setCustomizeTarget(null)}
+          onSetColor={(color) => setColor(customizeTarget.id, color)}
+          onSetBackgroundImage={(url) => setBackgroundImage(customizeTarget.id, url)}
+          onTogglePin={() => togglePin(customizeTarget.id)}
+          onToggleArchive={() => toggleArchive(customizeTarget.id)}
+          onDuplicate={() => handleDuplicate(customizeTarget)}
+          onDelete={() => handleDelete(customizeTarget)}
+        />
+      )}
+
+      {undo && (
+        <div className="undo-toast" role="status">
+          <span>{undo.label}</span>
+          <button onClick={handleUndo}>Annuler</button>
+        </div>
       )}
     </>
   );

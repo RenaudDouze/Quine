@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Grid } from "../lib/bingo";
@@ -29,7 +29,14 @@ function makeGrid(overrides: Partial<Grid> = {}): Grid {
     cells: overrides.cells ?? [],
     createdAt: overrides.createdAt ?? 1,
     updatedAt: overrides.updatedAt ?? 1,
+    ...overrides,
   };
+}
+
+/** Ouvre le panneau « Personnaliser » d'une grille identifiée par son titre. */
+async function openCustomize(user: ReturnType<typeof userEvent.setup>, title: string) {
+  const card = screen.getByText(title).closest(".grid-item") as HTMLElement;
+  await user.click(within(card).getByRole("button", { name: "Personnaliser" }));
 }
 
 beforeEach(() => {
@@ -57,14 +64,15 @@ describe("HomeView", () => {
     expect(window.location.hash).toBe("#editor");
   });
 
-  it("sorts multiple grids by most recently updated first", () => {
+  it("renders grids in their stored order, with pinned grids floated to the top", () => {
     saveGrids([
-      makeGrid({ id: "older", title: "Ancienne", updatedAt: 1 }),
-      makeGrid({ id: "newer", title: "Récente", updatedAt: 2 }),
+      makeGrid({ id: "a", title: "Alpha" }),
+      makeGrid({ id: "b", title: "Bravo", pinned: true }),
+      makeGrid({ id: "c", title: "Charlie" }),
     ]);
     renderHome();
-    const titles = screen.getAllByText(/Ancienne|Récente/).map((el) => el.textContent);
-    expect(titles).toEqual(["Récente", "Ancienne"]);
+    const titles = screen.getAllByText(/Alpha|Bravo|Charlie/).map((el) => el.textContent);
+    expect(titles).toEqual(["📌Bravo", "Alpha", "Charlie"]);
   });
 
   it("shows the free-center hint in the card meta", () => {
@@ -89,35 +97,6 @@ describe("HomeView", () => {
     expect(window.location.hash).toBe("#editor/g1");
   });
 
-  it("duplicates a grid and shows the copy", async () => {
-    const user = userEvent.setup();
-    saveGrids([makeGrid({ id: "g1", title: "Original" })]);
-    renderHome();
-    await user.click(screen.getByRole("button", { name: "Dupliquer" }));
-    expect(screen.getByText("Original (copie)")).toBeInTheDocument();
-    expect(loadGrids()).toHaveLength(2);
-  });
-
-  it("deletes a grid after confirmation", async () => {
-    const user = userEvent.setup();
-    saveGrids([makeGrid({ id: "g1", title: "À virer" })]);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    renderHome();
-    await user.click(screen.getByRole("button", { name: "Supprimer" }));
-    expect(screen.queryByText("À virer")).not.toBeInTheDocument();
-    expect(loadGrids()).toHaveLength(0);
-  });
-
-  it("keeps a grid when deletion is not confirmed", async () => {
-    const user = userEvent.setup();
-    saveGrids([makeGrid({ id: "g1", title: "À garder" })]);
-    vi.spyOn(window, "confirm").mockReturnValue(false);
-    renderHome();
-    await user.click(screen.getByRole("button", { name: "Supprimer" }));
-    expect(screen.getByText("À garder")).toBeInTheDocument();
-    expect(loadGrids()).toHaveLength(1);
-  });
-
   it.each([
     ["system", "Auto", "light"],
     ["light", "Clair", "dark"],
@@ -132,6 +111,268 @@ describe("HomeView", () => {
       expect(onThemePreferenceChange).toHaveBeenCalledWith(next);
     }
   );
+
+  describe("suppression et annulation", () => {
+    it("deletes a grid immediately (no confirmation dialog) and shows an undo toast", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "À virer" })]);
+      renderHome();
+      await openCustomize(user, "À virer");
+      await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+
+      expect(screen.queryByText("À virer")).not.toBeInTheDocument();
+      expect(loadGrids()).toHaveLength(0);
+      expect(screen.getByText(/Grille « À virer » supprimée/)).toBeInTheDocument();
+    });
+
+    it("restores the grid when Annuler is clicked on the undo toast", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "À restaurer" })]);
+      renderHome();
+      await openCustomize(user, "À restaurer");
+      await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      await user.click(screen.getByRole("button", { name: "Annuler" }));
+
+      expect(screen.getByText("À restaurer")).toBeInTheDocument();
+      expect(loadGrids()).toHaveLength(1);
+    });
+
+    it("hides the undo toast once dismissed", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "À virer" })]);
+      renderHome();
+      await openCustomize(user, "À virer");
+      await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      await user.click(screen.getByRole("button", { name: "Annuler" }));
+
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+
+    it("auto-dismisses the undo toast after the timeout", () => {
+      vi.useFakeTimers();
+      saveGrids([makeGrid({ id: "g1", title: "À virer" })]);
+      renderHome();
+      fireEvent.click(screen.getByRole("button", { name: "Personnaliser" }));
+      fireEvent.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      expect(screen.getByRole("status")).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      vi.useRealTimers();
+    });
+  });
+
+  describe("personnalisation (couleur, image de fond, épinglage, archivage, duplication)", () => {
+    it("opens and closes the customize modal", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "Ma grille" })]);
+      renderHome();
+      await openCustomize(user, "Ma grille");
+      expect(screen.getByText('Personnaliser « Ma grille »')).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Fermer" }));
+      expect(screen.queryByText('Personnaliser « Ma grille »')).not.toBeInTheDocument();
+    });
+
+    it("persists the chosen color on the targeted grid only, leaving other grids untouched", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "g1", title: "Ma grille" }),
+        makeGrid({ id: "g2", title: "Autre grille" }),
+      ]);
+      renderHome();
+      await openCustomize(user, "Ma grille");
+      await user.click(screen.getByRole("button", { name: "Choisir la couleur #db2777" }));
+
+      const grids = loadGrids();
+      expect(grids.find((g) => g.id === "g1")?.color).toBe("#db2777");
+      expect(grids.find((g) => g.id === "g2")?.color).toBeUndefined();
+      const card = screen.getByText("Ma grille").closest(".grid-item") as HTMLElement;
+      expect(card.style.getPropertyValue("--card-accent")).toBe("#db2777");
+    });
+
+    it("persists a valid background image URL on the targeted grid only, leaving other grids untouched", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "g1", title: "Ma grille" }),
+        makeGrid({ id: "g2", title: "Autre grille" }),
+      ]);
+      renderHome();
+      await openCustomize(user, "Ma grille");
+      const input = screen.getByPlaceholderText(/exemple.com/i);
+      fireEvent.change(input, { target: { value: "https://example.com/bg.jpg" } });
+      fireEvent.blur(input);
+
+      const grids = loadGrids();
+      expect(grids.find((g) => g.id === "g1")?.backgroundImageUrl).toBe("https://example.com/bg.jpg");
+      expect(grids.find((g) => g.id === "g2")?.backgroundImageUrl).toBeUndefined();
+    });
+
+    it("pins a grid, floating it to the top of the list", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha" }),
+        makeGrid({ id: "b", title: "Bravo" }),
+      ]);
+      renderHome();
+      await openCustomize(user, "Bravo");
+      await user.click(screen.getByRole("button", { name: /Épingler en haut/ }));
+
+      const titles = screen.getAllByText(/Alpha|Bravo/).map((el) => el.textContent);
+      expect(titles).toEqual(["📌Bravo", "Alpha"]);
+      expect(loadGrids().find((g) => g.title === "Bravo")?.pinned).toBe(true);
+    });
+
+    it("unpins an already-pinned grid", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "Épinglée", pinned: true })]);
+      renderHome();
+      await openCustomize(user, "Épinglée");
+      await user.click(screen.getByRole("button", { name: /Détacher cette grille/ }));
+
+      expect(loadGrids()[0].pinned).toBe(false);
+    });
+
+    it("archives a grid, moving it out of the active list into the Archivées tab", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha" }),
+        makeGrid({ id: "b", title: "Bravo" }),
+      ]);
+      renderHome();
+      await openCustomize(user, "Bravo");
+      await user.click(screen.getByRole("button", { name: /Archiver cette grille/ }));
+
+      expect(screen.queryByText("Bravo")).not.toBeInTheDocument();
+      expect(screen.getByText("Alpha")).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: /Archivées/ })).toBeInTheDocument();
+
+      await user.click(screen.getByRole("tab", { name: /Archivées/ }));
+      expect(screen.getByText("Bravo")).toBeInTheDocument();
+      expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+    });
+
+    it("unarchives a grid from the Archivées tab, moving it back to Actives", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "Archivée", archived: true })]);
+      renderHome();
+      await user.click(screen.getByRole("tab", { name: /Archivées/ }));
+      await openCustomize(user, "Archivée");
+      await user.click(screen.getByRole("button", { name: /Désarchiver cette grille/ }));
+
+      expect(screen.queryByText("Archivée")).not.toBeInTheDocument();
+      await user.click(screen.getByRole("tab", { name: "Actives" }));
+      expect(screen.getByText("Archivée")).toBeInTheDocument();
+    });
+
+    it("shows a locked hint and disables appearance controls for an archived grid", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "Archivée", archived: true })]);
+      renderHome();
+      await user.click(screen.getByRole("tab", { name: /Archivées/ }));
+      await openCustomize(user, "Archivée");
+
+      expect(screen.getByText(/grille archivée/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Choisir la couleur #2563eb" })).toBeDisabled();
+    });
+
+    it("duplicates a grid via the customize modal, without carrying over pin/archive state", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "Original", pinned: true })]);
+      renderHome();
+      await openCustomize(user, "Original");
+      await user.click(screen.getByRole("button", { name: /Dupliquer cette grille/ }));
+
+      expect(screen.getByText("Original (copie)")).toBeInTheDocument();
+      const grids = loadGrids();
+      expect(grids).toHaveLength(2);
+      const copy = grids.find((g) => g.title === "Original (copie)")!;
+      expect(copy.pinned).toBe(false);
+      expect(copy.archived).toBe(false);
+    });
+  });
+
+  describe("recherche", () => {
+    it("does not show the search button when there are no grids", () => {
+      renderHome();
+      expect(screen.queryByRole("button", { name: "Rechercher" })).not.toBeInTheDocument();
+    });
+
+    it("opens a search field and filters grids by title", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "a", title: "Bingo réunion" }),
+        makeGrid({ id: "b", title: "Bingo vacances" }),
+      ]);
+      renderHome();
+      await user.click(screen.getByRole("button", { name: "Rechercher" }));
+      await user.type(screen.getByPlaceholderText(/rechercher une grille/i), "vacances");
+
+      expect(screen.queryByText("Bingo réunion")).not.toBeInTheDocument();
+      expect(screen.getByText("Bingo vacances")).toBeInTheDocument();
+    });
+
+    it("shows a no-match message when nothing matches the query", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ title: "Bingo réunion" })]);
+      renderHome();
+      await user.click(screen.getByRole("button", { name: "Rechercher" }));
+      await user.type(screen.getByPlaceholderText(/rechercher une grille/i), "introuvable");
+
+      expect(screen.getByText(/aucune grille ne correspond à/i)).toBeInTheDocument();
+    });
+
+    it("clears the query and closes the search field", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ title: "Bingo réunion" })]);
+      renderHome();
+      await user.click(screen.getByRole("button", { name: "Rechercher" }));
+      await user.type(screen.getByPlaceholderText(/rechercher une grille/i), "introuvable");
+      await user.click(screen.getByRole("button", { name: "Fermer la recherche" }));
+
+      expect(screen.queryByPlaceholderText(/rechercher une grille/i)).not.toBeInTheDocument();
+      expect(screen.getByText("Bingo réunion")).toBeInTheDocument();
+    });
+
+    it("closes the search field on Escape", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ title: "Bingo réunion" })]);
+      renderHome();
+      await user.click(screen.getByRole("button", { name: "Rechercher" }));
+      fireEvent.keyDown(screen.getByPlaceholderText(/rechercher une grille/i), { key: "Escape" });
+
+      expect(screen.queryByPlaceholderText(/rechercher une grille/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("glisser-déposer (éligibilité)", () => {
+    it("shows a drag handle when nothing is filtered and no grid is archived", () => {
+      saveGrids([makeGrid({ id: "a", title: "Alpha" }), makeGrid({ id: "b", title: "Bravo" })]);
+      renderHome();
+      expect(screen.getAllByRole("button", { name: "Réordonner" })).toHaveLength(2);
+    });
+
+    it("hides drag handles while a search query is active", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "a", title: "Alpha" }), makeGrid({ id: "b", title: "Bravo" })]);
+      renderHome();
+      await user.click(screen.getByRole("button", { name: "Rechercher" }));
+      await user.type(screen.getByPlaceholderText(/rechercher une grille/i), "Alpha");
+
+      expect(screen.queryByRole("button", { name: "Réordonner" })).not.toBeInTheDocument();
+    });
+
+    it("hides drag handles on the active tab as soon as any grid is archived", () => {
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha" }),
+        makeGrid({ id: "b", title: "Bravo", archived: true }),
+      ]);
+      renderHome();
+      expect(screen.queryByRole("button", { name: "Réordonner" })).not.toBeInTheDocument();
+    });
+  });
 
   describe("synchronisation", () => {
     it("opens the sync modal with every grid and closes it", async () => {

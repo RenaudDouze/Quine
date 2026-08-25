@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { buildCells, checkWin, type Grid } from "../lib/bingo";
 import { loadGrids, saveGrids } from "../lib/storage";
 import { now } from "../lib/time";
@@ -7,6 +7,14 @@ import { navigate } from "../hooks/useHashRoute";
 interface Props {
   id: string;
 }
+
+// Durée d'affichage du confetti à l'apparition du bandeau Bingo.
+const CELEBRATION_DURATION_MS = 1100;
+// Angles (en degrés) des particules du confetti, réparties en éventail sur
+// un cercle complet : contrairement à une carte de compteur, le bandeau
+// occupe tout l'écran, rien à éviter dans un coin précis.
+const CONFETTI_ANGLES = [-90, -65, -40, -15, 15, 40, 65, 90, -110, 110, -135, 135, -155, 155, 180, 0];
+const CONFETTI_COLORS = ["#f43f5e", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"];
 
 export default function PlayView({ id }: Props) {
   const [grid, setGrid] = useState<Grid | undefined>(() =>
@@ -36,6 +44,28 @@ export default function PlayView({ id }: Props) {
   // permanently hide the banner on an actual win.
   const [dismissed, setDismissed] = useState(false);
   const bannerVisible = hasWin && !dismissed;
+
+  // Célèbre l'apparition du bandeau (transition false → true), pas juste le
+  // fait qu'il soit visible : sinon rouvrir une grille déjà gagnée
+  // redéclencherait le confetti à chaque montage. `prevBannerVisible` capture
+  // sa propre valeur précédente au fil des rendus (recalculée à chaque passage
+  // de l'effet), donc le premier passage au montage compare la valeur initiale
+  // à elle-même et ne célèbre jamais une victoire déjà acquise à l'ouverture.
+  const [celebrating, setCelebrating] = useState(false);
+  const prevBannerVisible = useRef(bannerVisible);
+  const celebrateTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  /* oxlint-disable react/set-state-in-effect -- réagit à la transition d'un
+     état dérivé (bannerVisible), pas calculable pendant le rendu lui-même */
+  useEffect(() => {
+    const wasVisible = prevBannerVisible.current;
+    prevBannerVisible.current = bannerVisible;
+    if (!wasVisible && bannerVisible) {
+      setCelebrating(true);
+      clearTimeout(celebrateTimer.current);
+      celebrateTimer.current = setTimeout(() => setCelebrating(false), CELEBRATION_DURATION_MS);
+    }
+  }, [bannerVisible]);
+  /* oxlint-enable react/set-state-in-effect */
 
   if (!grid) return null;
   const current: Grid = grid;
@@ -135,6 +165,24 @@ export default function PlayView({ id }: Props) {
           <div className="bingo-banner-inner">
             <span>🎉 BINGO ! 🎉</span>
           </div>
+        </div>
+      )}
+
+      {celebrating && (
+        <div className="bingo-celebration" aria-hidden="true">
+          {CONFETTI_ANGLES.map((angle, i) => (
+            <span
+              key={angle}
+              className="bingo-confetti"
+              style={
+                {
+                  "--angle": `${angle}deg`,
+                  "--delay": `${i * 25}ms`,
+                  "--color": CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+                } as CSSProperties
+              }
+            />
+          ))}
         </div>
       )}
     </>
