@@ -26,30 +26,39 @@ export default function PlayView({ id }: Props) {
     [grid]
   );
 
-  // Show the banner on every fresh "not a win -> win" transition, and hide
-  // it otherwise — including while the player keeps marking/unmarking cells
-  // that don't complete a line, which must NOT bring a dismissed banner
-  // back (that was a real bug: comparing against `grid.cells` by reference
-  // re-triggered on any toggle). This must be an effect, not a ref mutated
-  // during render: a render can be started and discarded without
-  // committing (React 19's concurrent features, StrictMode's dev
-  // double-invoke), and a discarded render would still have mutated the
-  // ref, permanently losing the next real transition and hiding the
-  // banner on an actual win — that was a second real bug, found by
-  // testing this exact scenario. An effect only runs after a render
-  // actually commits, so it doesn't have that failure mode; oxlint's
-  // set-state-in-effect rule flags it anyway, but this is a legitimate
-  // "sync state to an external transition" case, not the derivable-state
-  // anti-pattern the rule is meant to catch.
+  // Show the banner whenever the *set of cells forming a completed line*
+  // changes to something new, and hide it otherwise. This one signature
+  // covers every case:
+  //  - toggling a cell that isn't part of any line doesn't change the
+  //    signature, so a dismissed banner stays hidden (a real bug: comparing
+  //    `grid.cells` by reference instead re-triggered on any toggle);
+  //  - breaking a line then re-completing the exact same one goes through
+  //    an empty signature in between, so it still counts as "new";
+  //  - completing a second, different line while the first stays marked
+  //    changes the signature (checkWin's winSet is the union of every
+  //    complete line) even though `hasWin` never dips back to false, so it
+  //    also re-shows the banner (a real bug: comparing just the `hasWin`
+  //    boolean transition missed this case entirely).
+  const winKey = hasWin ? [...winSet].sort((a, b) => a - b).join(",") : "";
   const [dismissed, setDismissed] = useState(false);
-  const prevHasWinRef = useRef(hasWin);
+  const prevWinKeyRef = useRef(winKey);
+  // This must be an effect, not a ref mutated during render: a render can
+  // be started and discarded without committing (React 19's concurrent
+  // features, StrictMode's dev double-invoke), and a discarded render
+  // would still have mutated the ref, permanently losing the next real
+  // change and hiding the banner on an actual win — that was a third real
+  // bug, found by testing this exact scenario. An effect only runs after a
+  // render actually commits, so it doesn't have that failure mode; oxlint's
+  // set-state-in-effect rule flags it anyway, but this is a legitimate
+  // "sync state to an external change" case, not the derivable-state
+  // anti-pattern the rule is meant to catch.
   useEffect(() => {
-    if (hasWin && !prevHasWinRef.current) {
+    if (winKey !== prevWinKeyRef.current && winKey !== "") {
       // oxlint-disable-next-line react/set-state-in-effect -- see comment above
       setDismissed(false);
     }
-    prevHasWinRef.current = hasWin;
-  }, [hasWin]);
+    prevWinKeyRef.current = winKey;
+  }, [winKey]);
   const bannerVisible = hasWin && !dismissed;
 
   if (!grid) return null;

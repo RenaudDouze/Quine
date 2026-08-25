@@ -128,6 +128,35 @@ describe("PlayView", () => {
     expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
   });
 
+  it("shows the banner immediately when mounting on an already-won grid", async () => {
+    const items = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+    const cells = buildCells(items, 3, false).map((c, i) => ({
+      ...c,
+      marked: i < 3, // top row already complete, e.g. after a page reload
+    }));
+    seedGrid({ cells });
+    render(<PlayView id="g1" />);
+    expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
+  });
+
+  it("shows the banner again for a second line completed while the first stays marked", async () => {
+    const user = userEvent.setup();
+    seedGrid();
+    render(<PlayView id="g1" />);
+    const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+    await user.click(cells[0]);
+    await user.click(cells[1]);
+    await user.click(cells[2]); // completes the top row (0,1,2)
+    expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
+
+    await user.click(screen.getByText(/bingo !/i)); // dismiss
+    // Complete the left column (0,3,6) too, without unmarking the row —
+    // hasWin never dips back to false in between.
+    await user.click(cells[3]);
+    await user.click(cells[6]);
+    expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
+  });
+
   it("keeps the dismissed banner hidden when toggling a cell outside the winning line", async () => {
     const user = userEvent.setup();
     seedGrid();
