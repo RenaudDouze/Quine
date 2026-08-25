@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buildCells, checkWin, type Grid } from "../lib/bingo";
 import { loadGrids, saveGrids } from "../lib/storage";
 import { now } from "../lib/time";
@@ -26,39 +26,15 @@ export default function PlayView({ id }: Props) {
     [grid]
   );
 
-  // Show the banner whenever the *set of cells forming a completed line*
-  // changes to something new, and hide it otherwise. This one signature
-  // covers every case:
-  //  - toggling a cell that isn't part of any line doesn't change the
-  //    signature, so a dismissed banner stays hidden (a real bug: comparing
-  //    `grid.cells` by reference instead re-triggered on any toggle);
-  //  - breaking a line then re-completing the exact same one goes through
-  //    an empty signature in between, so it still counts as "new";
-  //  - completing a second, different line while the first stays marked
-  //    changes the signature (checkWin's winSet is the union of every
-  //    complete line) even though `hasWin` never dips back to false, so it
-  //    also re-shows the banner (a real bug: comparing just the `hasWin`
-  //    boolean transition missed this case entirely).
-  const winKey = hasWin ? [...winSet].sort((a, b) => a - b).join(",") : "";
+  // The banner stays dismissed until marking a cell (never unmarking one —
+  // see toggleCell) newly completes a line that wasn't already accounted
+  // for. Tying this directly to the action, inside the plain event handler
+  // that performs it, avoids the pitfalls of deriving it from render or
+  // effect state: a render can be started and discarded without committing
+  // (React 19's concurrent features, StrictMode's dev double-invoke),
+  // which previously desynced a ref-based transition check and could
+  // permanently hide the banner on an actual win.
   const [dismissed, setDismissed] = useState(false);
-  const prevWinKeyRef = useRef(winKey);
-  // This must be an effect, not a ref mutated during render: a render can
-  // be started and discarded without committing (React 19's concurrent
-  // features, StrictMode's dev double-invoke), and a discarded render
-  // would still have mutated the ref, permanently losing the next real
-  // change and hiding the banner on an actual win — that was a third real
-  // bug, found by testing this exact scenario. An effect only runs after a
-  // render actually commits, so it doesn't have that failure mode; oxlint's
-  // set-state-in-effect rule flags it anyway, but this is a legitimate
-  // "sync state to an external change" case, not the derivable-state
-  // anti-pattern the rule is meant to catch.
-  useEffect(() => {
-    if (winKey !== prevWinKeyRef.current && winKey !== "") {
-      // oxlint-disable-next-line react/set-state-in-effect -- see comment above
-      setDismissed(false);
-    }
-    prevWinKeyRef.current = winKey;
-  }, [winKey]);
   const bannerVisible = hasWin && !dismissed;
 
   if (!grid) return null;
@@ -77,7 +53,24 @@ export default function PlayView({ id }: Props) {
 
   function toggleCell(i: number) {
     if (current.cells[i].free) return;
+    const wasMarked = current.cells[i].marked;
     const cells = current.cells.map((c, idx) => (idx === i ? { ...c, marked: !c.marked } : c));
+
+    // Marking (not unmarking) a cell can newly complete a line that wasn't
+    // already part of the currently-won lines — e.g. finishing a second
+    // line while the first stays marked, or re-completing a line that was
+    // broken and re-marked. Only that case should bring a dismissed banner
+    // back; unmarking a cell must never show it, even if it happens to
+    // leave a *different*, already-won line as the only one still
+    // complete (checkWin's winSet is the union of every complete line, so
+    // its content can shrink on unmark without hasWin becoming false).
+    if (!wasMarked) {
+      const newWinSet = checkWin(cells, current.size).winSet;
+      if ([...newWinSet].some((idx) => !winSet.has(idx))) {
+        setDismissed(false);
+      }
+    }
+
     persist({ ...current, cells });
   }
 
