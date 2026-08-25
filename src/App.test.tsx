@@ -2,10 +2,31 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { buildCells, type Grid } from "./lib/bingo";
+import { encodeGridsToParam } from "./lib/share";
+import { loadGrids, saveGrids } from "./lib/storage";
+
+function makeGrid(overrides: Partial<Grid> = {}): Grid {
+  const size = overrides.size ?? 3;
+  const freeCenter = overrides.freeCenter ?? false;
+  const items = overrides.items ?? ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+  return {
+    id: overrides.id ?? "g1",
+    title: overrides.title ?? "Grille",
+    size,
+    freeCenter,
+    items,
+    cells: overrides.cells ?? buildCells(items, size, freeCenter),
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  };
+}
 
 beforeEach(() => {
   localStorage.clear();
   window.location.hash = "";
+  window.history.pushState({}, "", "/");
 });
 
 afterEach(() => {
@@ -99,5 +120,80 @@ describe("App", () => {
     } finally {
       if (meta) document.head.appendChild(meta);
     }
+  });
+
+  describe("importing from a share link (?import=...)", () => {
+    it("imports directly when there are no existing grids (no confirmation)", async () => {
+      const confirmSpy = vi.spyOn(window, "confirm");
+      const param = encodeGridsToParam([makeGrid({ title: "Partagée" })]);
+      window.history.pushState({}, "", `/?import=${param}`);
+
+      render(<App />);
+
+      expect(await screen.findByText("Partagée")).toBeInTheDocument();
+      expect(confirmSpy).not.toHaveBeenCalled();
+    });
+
+    it("cleans the import param from the URL after handling it", async () => {
+      const param = encodeGridsToParam([makeGrid({ title: "Partagée" })]);
+      window.history.pushState({}, "", `/?import=${param}`);
+
+      render(<App />);
+
+      await screen.findByText("Partagée");
+      expect(window.location.search).toBe("");
+    });
+
+    it("replaces existing grids after confirmation", async () => {
+      saveGrids([makeGrid({ id: "old", title: "Ancienne" })]);
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+      const param = encodeGridsToParam([makeGrid({ title: "Nouvelle" })]);
+      window.history.pushState({}, "", `/?import=${param}`);
+
+      render(<App />);
+
+      expect(await screen.findByText("Nouvelle")).toBeInTheDocument();
+      expect(screen.queryByText("Ancienne")).not.toBeInTheDocument();
+    });
+
+    it("merges with existing grids when confirmation is declined", async () => {
+      saveGrids([makeGrid({ id: "old", title: "Ancienne" })]);
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+      const param = encodeGridsToParam([makeGrid({ title: "Nouvelle" })]);
+      window.history.pushState({}, "", `/?import=${param}`);
+
+      render(<App />);
+
+      expect(await screen.findByText("Nouvelle")).toBeInTheDocument();
+      expect(screen.getByText("Ancienne")).toBeInTheDocument();
+      expect(loadGrids()).toHaveLength(2);
+    });
+
+    it("does nothing when there is no import param", () => {
+      saveGrids([makeGrid({ title: "Ancienne" })]);
+      render(<App />);
+      expect(screen.getByText("Ancienne")).toBeInTheDocument();
+      expect(loadGrids()).toHaveLength(1);
+    });
+
+    it("cleans the URL and does nothing else for an invalid/corrupted param", async () => {
+      window.history.pushState({}, "", "/?import=not-valid-base64!!!");
+
+      render(<App />);
+
+      await screen.findByText(/aucune grille pour le moment/i);
+      expect(window.location.search).toBe("");
+      expect(loadGrids()).toHaveLength(0);
+    });
+
+    it("does nothing for a param that decodes to an empty grid list", async () => {
+      const param = encodeGridsToParam([]);
+      window.history.pushState({}, "", `/?import=${param}`);
+
+      render(<App />);
+
+      await screen.findByText(/aucune grille pour le moment/i);
+      expect(loadGrids()).toHaveLength(0);
+    });
   });
 });

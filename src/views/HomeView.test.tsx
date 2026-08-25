@@ -1,9 +1,15 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Grid } from "../lib/bingo";
 import { loadGrids, saveGrids } from "../lib/storage";
 import HomeView from "./HomeView";
+
+vi.mock("qrcode", () => ({
+  default: {
+    toDataURL: vi.fn().mockResolvedValue("data:image/png;base64,fake"),
+  },
+}));
 
 function renderHome(props: Partial<Parameters<typeof HomeView>[0]> = {}) {
   const onThemePreferenceChange = vi.fn();
@@ -126,4 +132,94 @@ describe("HomeView", () => {
       expect(onThemePreferenceChange).toHaveBeenCalledWith(next);
     }
   );
+
+  describe("synchronisation", () => {
+    it("opens the sync modal with every grid and closes it", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "Une grille" })]);
+      renderHome();
+      await user.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
+      expect(screen.getByText("Synchroniser mes grilles", { selector: "h2" })).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Fermer" }));
+      expect(screen.queryByText("Synchroniser mes grilles", { selector: "h2" })).not.toBeInTheDocument();
+    });
+
+    it("replaces grids via the sync modal's JSON import when confirmed", async () => {
+      saveGrids([makeGrid({ id: "old", title: "Ancienne" })]);
+      renderHome();
+      fireEvent.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
+      vi.spyOn(window, "confirm").mockReturnValue(true); // replace
+
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = new File(
+        [JSON.stringify([{ title: "Importée", size: 3, items: ["A"] }])],
+        "backup.json",
+        { type: "application/json" }
+      );
+      await act(async () => {
+        fireEvent.change(input, { target: { files: [file] } });
+      });
+
+      expect(screen.queryByText("Ancienne")).not.toBeInTheDocument();
+      expect(screen.getByText("Importée")).toBeInTheDocument();
+      expect(loadGrids()).toHaveLength(1);
+    });
+
+    it("imports grids via the sync modal's JSON import", async () => {
+      saveGrids([makeGrid({ id: "old", title: "Ancienne" })]);
+      renderHome();
+      fireEvent.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
+      vi.spyOn(window, "confirm").mockReturnValue(false); // merge
+
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = new File(
+        [JSON.stringify([{ title: "Importée", size: 3, items: ["A"] }])],
+        "backup.json",
+        { type: "application/json" }
+      );
+      await act(async () => {
+        fireEvent.change(input, { target: { files: [file] } });
+      });
+
+      expect(screen.getByText("Ancienne")).toBeInTheDocument();
+      expect(screen.getByText("Importée")).toBeInTheDocument();
+      expect(loadGrids()).toHaveLength(2);
+    });
+  });
+
+  describe("partage d'une grille", () => {
+    it("opens the share modal for a single grid and closes it", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "Ma grille à partager" })]);
+      renderHome();
+      await user.click(screen.getByRole("button", { name: "Partager" }));
+      expect(
+        screen.getByText('Partager "Ma grille à partager"', { selector: "h2" })
+      ).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Fermer" }));
+      expect(
+        screen.queryByText('Partager "Ma grille à partager"', { selector: "h2" })
+      ).not.toBeInTheDocument();
+    });
+
+    it("does not offer a JSON import/export section when sharing a single grid", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1" })]);
+      renderHome();
+      await user.click(screen.getByRole("button", { name: "Partager" }));
+      expect(screen.queryByText("Fichier de sauvegarde")).not.toBeInTheDocument();
+    });
+
+    it("shares only the targeted grid, not the whole list", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "g1", title: "Grille A" }),
+        makeGrid({ id: "g2", title: "Grille B" }),
+      ]);
+      renderHome();
+      const cards = screen.getAllByRole("button", { name: "Partager" });
+      await user.click(cards[0]);
+      expect(screen.getByText('Partager "Grille A"', { selector: "h2" })).toBeInTheDocument();
+    });
+  });
 });

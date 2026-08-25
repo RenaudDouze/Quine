@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ThemePreference } from "../App";
+import ShareModal from "../components/ShareModal";
 import type { Grid } from "../lib/bingo";
 import { loadGrids, saveGrids, uid } from "../lib/storage";
 import { navigate } from "../hooks/useHashRoute";
@@ -17,6 +18,8 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   const [grids, setGrids] = useState<Grid[]>(() =>
     loadGrids().sort((a, b) => b.updatedAt - a.updatedAt)
   );
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<Grid | null>(null);
 
   function refresh() {
     setGrids(loadGrids().sort((a, b) => b.updatedAt - a.updatedAt));
@@ -43,6 +46,11 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     }
   }
 
+  function handleImport(imported: Grid[], mode: "replace" | "merge") {
+    saveGrids(mode === "replace" ? imported : [...loadGrids(), ...imported]);
+    refresh();
+  }
+
   return (
     <>
       <header className="topbar">
@@ -54,6 +62,14 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
             aria-label={`Thème : ${THEME_LABEL[themePreference]}`}
           >
             {THEME_ICON[themePreference]}
+          </button>
+          <button
+            className="icon-btn"
+            onClick={() => setSyncOpen(true)}
+            aria-label="Synchroniser mes grilles"
+            title="Synchroniser mes grilles"
+          >
+            🔄
           </button>
           <button className="btn btn-primary" onClick={() => navigate("editor")}>
             + Nouvelle grille
@@ -97,6 +113,14 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
                   📋
                 </button>
                 <button
+                  className="icon-btn"
+                  title="Partager"
+                  aria-label="Partager"
+                  onClick={() => setShareTarget(grid)}
+                >
+                  📤
+                </button>
+                <button
                   className="icon-btn icon-btn-danger"
                   title="Supprimer"
                   aria-label="Supprimer"
@@ -108,6 +132,30 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
             </div>
           ))}
         </div>
+      )}
+
+      {syncOpen && (
+        <ShareModal
+          grids={grids}
+          heading="Synchroniser mes grilles"
+          hint="Scanne ce QR code depuis l'autre appareil, ou copie le lien."
+          emptyHint="Ajoute au moins une grille pour générer un QR code."
+          qrAlt="QR code de mes grilles"
+          showJsonBackup
+          onImport={handleImport}
+          onClose={() => setSyncOpen(false)}
+        />
+      )}
+
+      {shareTarget && (
+        <ShareModal
+          grids={[shareTarget]}
+          heading={`Partager "${shareTarget.title}"`}
+          hint="Scanne ce QR code, ou copie le lien pour que quelqu'un d'autre récupère cette grille."
+          emptyHint="Impossible de générer un QR code."
+          qrAlt={`QR code de la grille ${shareTarget.title}`}
+          onClose={() => setShareTarget(null)}
+        />
       )}
     </>
   );
