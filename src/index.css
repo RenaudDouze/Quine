@@ -130,9 +130,12 @@ button {
 .btn-primary:hover {
   background: #1d4ed8;
 }
+/* Action secondaire mais propre à la grille affichée (rejouer, effacer les
+   coches) : comme le bouton -1 de +1, une teinte de la couleur de CETTE
+   grille (--accent, posée en inline style par la vue), pas une couleur fixe. */
 .btn-secondary {
-  background: var(--accent-dim);
-  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  color: var(--accent);
   box-shadow: none;
 }
 /* Bouton de chrome (raccourci de la barre du haut, ex : « + Nouvelle
