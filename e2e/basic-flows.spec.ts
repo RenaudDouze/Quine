@@ -69,10 +69,48 @@ test('reset clears marks without touching a free center cell', async ({ page }) 
   await firstCell.click()
   await expect(firstCell).toHaveClass(/marked/)
 
+  page.once('dialog', (dialog) => dialog.accept())
   await page.getByRole('button', { name: /réinitialiser les coches/i }).click()
 
   await expect(firstCell).not.toHaveClass(/marked/)
   await expect(page.locator('.cell.free')).toHaveClass(/marked/)
+})
+
+test('keeps marks when the reset confirmation is declined', async ({ page }) => {
+  await createGrid(page, {
+    title: 'Bingo à garder',
+    size: 3,
+    items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
+  })
+
+  const firstCell = page.locator('.cell').first()
+  await firstCell.click()
+  await expect(firstCell).toHaveClass(/marked/)
+
+  page.once('dialog', (dialog) => dialog.dismiss())
+  await page.getByRole('button', { name: /réinitialiser les coches/i }).click()
+
+  await expect(firstCell).toHaveClass(/marked/)
+})
+
+test('reshuffles the grid only once the confirmation is accepted', async ({ page }) => {
+  await createGrid(page, {
+    title: 'Bingo à remélanger',
+    size: 3,
+    items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
+  })
+  const before = await page.locator('.cell-label').allTextContents()
+
+  page.once('dialog', (dialog) => dialog.dismiss())
+  await page.getByRole('button', { name: /remélanger/i }).click()
+  await expect(page.locator('.cell-label')).toHaveText(before)
+
+  await page.locator('.cell').first().click()
+  await expect(page.locator('.cell.marked')).toHaveCount(1)
+
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: /remélanger/i }).click()
+  await expect(page.locator('.cell.marked')).toHaveCount(0)
 })
 
 test('persists grids in localStorage across reloads', async ({ page }) => {
