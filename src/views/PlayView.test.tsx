@@ -197,13 +197,15 @@ describe("PlayView", () => {
     expect(screen.queryByText(/bingo !/i)).not.toBeInTheDocument();
   });
 
-  it("reshuffles the grid on shuffle and resets marks (except free cells) on reset", async () => {
+  it("reshuffles the grid on shuffle and resets marks (except free cells) on reset, once confirmed", async () => {
     const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     seedGrid();
     render(<PlayView id="g1" />);
     const before = loadGrids()[0].cells.map((c) => c.label);
 
     await user.click(screen.getByRole("button", { name: /remélanger/i }));
+    expect(confirmSpy).toHaveBeenCalledWith("Remélanger la grille ? Les cases cochées seront effacées.");
     const after = loadGrids()[0].cells.map((c) => c.label);
     expect(after.slice().sort()).toEqual(before.slice().sort());
 
@@ -212,11 +214,37 @@ describe("PlayView", () => {
     expect(loadGrids()[0].cells.some((c) => c.marked)).toBe(true);
 
     await user.click(screen.getByRole("button", { name: /réinitialiser les coches/i }));
+    expect(confirmSpy).toHaveBeenCalledWith("Réinitialiser les coches ? Toutes les cases seront décochées.");
     expect(loadGrids()[0].cells.every((c) => !c.marked)).toBe(true);
+  });
+
+  it("does not reshuffle when the confirmation is declined", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    seedGrid();
+    render(<PlayView id="g1" />);
+    const before = loadGrids()[0].cells.map((c) => c.label);
+
+    await user.click(screen.getByRole("button", { name: /remélanger/i }));
+    expect(loadGrids()[0].cells.map((c) => c.label)).toEqual(before);
+  });
+
+  it("does not reset marks when the confirmation is declined", async () => {
+    const user = userEvent.setup();
+    seedGrid();
+    render(<PlayView id="g1" />);
+    const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+    await user.click(cells[0]);
+    expect(loadGrids()[0].cells.some((c) => c.marked)).toBe(true);
+
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    await user.click(screen.getByRole("button", { name: /réinitialiser les coches/i }));
+    expect(loadGrids()[0].cells.some((c) => c.marked)).toBe(true);
   });
 
   it("keeps the free cell marked when resetting a grid with a free center", async () => {
     const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     seedGrid({
       size: 5,
       freeCenter: true,

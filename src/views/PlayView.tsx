@@ -147,10 +147,12 @@ export default function PlayView({ id }: Props) {
   }
 
   function handleShuffle() {
+    if (!window.confirm("Remélanger la grille ? Les cases cochées seront effacées.")) return;
     persist({ ...current, cells: buildCells(current.items, current.size, current.freeCenter) });
   }
 
   function handleReset() {
+    if (!window.confirm("Réinitialiser les coches ? Toutes les cases seront décochées.")) return;
     const cells = current.cells.map((c) => (c.free ? c : { ...c, marked: false }));
     persist({ ...current, cells });
   }
