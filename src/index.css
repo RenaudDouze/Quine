@@ -120,17 +120,30 @@ button {
 .btn:active {
   transform: scale(0.95);
 }
+/* Réservé à LA décision principale d'un écran (créer/générer une grille) :
+   comme +1, le chrome de navigation reste neutre (.btn-chrome/.icon-btn),
+   la couleur n'appuie que sur l'action la plus engageante de l'écran. */
 .btn-primary {
-  background: var(--accent);
+  background: #2563eb;
   color: white;
 }
 .btn-primary:hover {
-  background: var(--accent-strong);
+  background: #1d4ed8;
 }
 .btn-secondary {
   background: var(--accent-dim);
   color: var(--accent-text);
   box-shadow: none;
+}
+/* Bouton de chrome (raccourci de la barre du haut, ex : « + Nouvelle
+   grille ») : même traitement neutre que .icon-btn, juste avec un libellé. */
+.btn-chrome {
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  color: var(--text);
+}
+.btn-chrome:hover {
+  background: var(--bg-2);
 }
 .btn-ghost {
   background: transparent;
@@ -223,14 +236,27 @@ button {
 }
 
 .drag-handle {
-  align-self: stretch;
+  align-self: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  margin-left: 6px;
   border: none;
-  background: transparent;
+  border-radius: 50%;
+  background: var(--bg-2);
   color: var(--text-dim);
-  font-size: 1.1rem;
-  padding: 0 4px;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: grab;
   touch-action: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.drag-handle:hover {
+  background: color-mix(in srgb, var(--card-accent, var(--accent)) 18%, var(--bg-2));
+  color: var(--card-accent, var(--accent));
 }
 
 .drag-handle:active {
@@ -273,12 +299,19 @@ button {
 }
 
 .card-actions .icon-btn {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border: none;
-  background: transparent;
+  background: var(--bg-2);
+  color: var(--text-dim);
   box-shadow: none;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.card-actions .icon-btn:hover {
+  background: color-mix(in srgb, var(--card-accent, var(--accent)) 18%, var(--bg-2));
+  color: var(--card-accent, var(--accent));
 }
 
 .empty-state {

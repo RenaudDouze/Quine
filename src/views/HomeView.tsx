@@ -164,7 +164,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
           >
             🔄
           </button>
-          <button className="btn btn-primary" onClick={() => navigate("editor")}>
+          <button className="btn btn-chrome" onClick={() => navigate("editor")}>
             + Nouvelle grille
           </button>
         </div>
