@@ -112,9 +112,9 @@ button {
 .btn {
   border: none;
   border-radius: 999px;
-  padding: 10px 18px;
+  padding: 10px 16px;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
   transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
@@ -123,8 +123,12 @@ button {
 }
 /* Réservé à LA décision principale d'un écran (créer/générer une grille) :
    comme +1, le chrome de navigation reste neutre (.btn-chrome/.icon-btn),
-   la couleur n'appuie que sur l'action la plus engageante de l'écran. */
+   la couleur n'appuie que sur l'action la plus engageante de l'écran. Comme
+   .add-btn.large dans +1, ce bouton est aussi plus grand que le reste du
+   chrome pour marquer qu'il est LE choix de l'écran. */
 .btn-primary {
+  padding: 14px 24px;
+  font-size: 1rem;
   background: #2563eb;
   color: white;
 }
@@ -158,10 +162,10 @@ button {
 .icon-btn {
   border: 1px solid var(--surface-border);
   background: var(--surface);
-  width: 38px;
-  height: 38px;
+  padding: 10px 14px;
   border-radius: 999px;
-  font-size: 1rem;
+  font-size: 1.1rem;
+  line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -211,10 +215,22 @@ button {
   gap: 8px;
   background: var(--surface);
   border: 1px solid var(--surface-border);
-  border-left: 4px solid var(--card-accent, var(--surface-border));
   border-radius: 22px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
   overflow: hidden;
+}
+
+/* Comme .counter-card::before dans +1 : un liseré de la couleur de la
+   grille en haut de la carte, plutôt qu'une bordure latérale. */
+.grid-item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--card-accent, var(--surface-border));
+  pointer-events: none;
 }
 
 .grid-item-bg {
@@ -242,14 +258,14 @@ button {
 .drag-handle {
   align-self: center;
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   margin-left: 6px;
   border: none;
   border-radius: 50%;
   background: var(--bg-2);
   color: var(--text-dim);
-  font-size: 0.95rem;
+  font-size: 0.8rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -303,8 +319,9 @@ button {
 }
 
 .card-actions .icon-btn {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
   border: none;
   background: var(--bg-2);
   color: var(--text-dim);
