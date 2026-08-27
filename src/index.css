@@ -6,10 +6,12 @@
   --surface-border: #e2e8f0;
   --text: #0f172a;
   --text-dim: #64748b;
-  --accent: #7c3aed;
-  --accent-strong: #6d28d9;
-  --accent-dim: #ede9fe;
-  --accent-text: #5b21b6;
+  /* Comme +1, aucune couleur de marque globale : --accent n'est censé être
+     défini que par une grille précise (GridCard/PlayView le posent en style
+     inline avec sa propre couleur). Ce repli n'existe que pour les endroits
+     sans grille (recherche, formulaire de création) et reprend le bleu de
+     l'unique CTA de l'écran plutôt qu'une couleur de marque arbitraire. */
+  --accent: #2563eb;
   --danger: #e11d48;
   --gold: #f59e0b;
   --font-ui: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -31,7 +33,6 @@
   --surface-border: #2f3b56;
   --text: #f1f5f9;
   --text-dim: #94a3b8;
-  --accent-dim: #241f3a;
   --bg-overlay-opacity: 0.86;
 }
 
@@ -449,10 +450,10 @@ button {
 }
 
 .cell.free {
-  background: var(--accent-dim);
-  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--accent);
   font-weight: 700;
-  border-color: var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--surface));
 }
 .cell.free.marked {
   background: var(--accent);
