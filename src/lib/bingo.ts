@@ -67,7 +67,7 @@ export function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function isOddSize(size: number): boolean {
+export function isOddSize(size: number): boolean {
   return size % 2 === 1;
 }
 

@@ -1,7 +1,8 @@
 import { type FormEvent, useMemo, useState } from "react";
-import { buildCells, neededCount, WIN_RULES, type Grid, type WinRule } from "../lib/bingo";
+import { buildCells, isOddSize, neededCount, WIN_RULES, type Grid, type WinRule } from "../lib/bingo";
 import { pickColor } from "../lib/colors";
 import { loadGrids, saveGrids, uid } from "../lib/storage";
+import { now } from "../lib/time";
 import { navigate } from "../hooks/useHashRoute";
 
 interface Props {
@@ -17,7 +18,7 @@ export default function EditorView({ id }: Props) {
   const [winRule, setWinRule] = useState<WinRule>(existing?.winRule ?? "line");
   const [itemsText, setItemsText] = useState((existing?.items ?? []).join("\n"));
 
-  const canFree = size % 2 === 1;
+  const canFree = isOddSize(size);
   const need = neededCount(size, freeCenter && canFree);
   const lines = itemsText
     .split("\n")
@@ -26,7 +27,7 @@ export default function EditorView({ id }: Props) {
 
   function handleSizeChange(next: number) {
     setSize(next);
-    if (next % 2 === 0) setFreeCenter(false);
+    if (!isOddSize(next)) setFreeCenter(false);
   }
 
   function handleSubmit(e: FormEvent) {
@@ -37,7 +38,7 @@ export default function EditorView({ id }: Props) {
 
     const finalTitle = title.trim() || "Grille de bingo";
     const grids = loadGrids();
-    const now = Date.now();
+    const timestamp = now();
     const effectiveFreeCenter = freeCenter && canFree;
 
     let grid: Grid;
@@ -49,7 +50,7 @@ export default function EditorView({ id }: Props) {
       grid.items = lines;
       grid.cells = buildCells(lines, size, effectiveFreeCenter);
       grid.winRule = winRule;
-      grid.updatedAt = now;
+      grid.updatedAt = timestamp;
     } else {
       grid = {
         id: uid(),
@@ -58,8 +59,8 @@ export default function EditorView({ id }: Props) {
         freeCenter: effectiveFreeCenter,
         items: lines,
         cells: buildCells(lines, size, effectiveFreeCenter),
-        createdAt: now,
-        updatedAt: now,
+        createdAt: timestamp,
+        updatedAt: timestamp,
         color: pickColor(grids.length),
         winRule,
       };
