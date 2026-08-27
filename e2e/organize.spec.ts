@@ -79,7 +79,8 @@ test('sets a custom color and background image on a grid card', async ({ page })
   await page.keyboard.press('Escape')
 
   const card = page.locator('.grid-item').filter({ has: page.getByText('Personnalisée', { exact: true }) })
-  await expect(card).toHaveCSS('border-left-color', 'rgb(219, 39, 119)')
+  const stripeColor = await card.evaluate((el) => getComputedStyle(el, '::before').backgroundColor)
+  expect(stripeColor).toBe('rgb(219, 39, 119)')
   await expect(card.locator('.grid-item-bg')).toHaveCount(1)
 })
 
