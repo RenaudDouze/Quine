@@ -65,26 +65,17 @@ export default function App() {
   }, []);
   /* oxlint-enable react/set-state-in-effect */
 
-  switch (route.name) {
-    case "editor":
-      return <EditorView key={route.id} id={route.id} />;
-    case "play":
-      return route.id ? (
-        <PlayView key={route.id} id={route.id} />
-      ) : (
-        <HomeView
-          key={importVersion}
-          themePreference={themePreference}
-          onThemePreferenceChange={setThemePreference}
-        />
-      );
-    default:
-      return (
-        <HomeView
-          key={importVersion}
-          themePreference={themePreference}
-          onThemePreferenceChange={setThemePreference}
-        />
-      );
+  if (route.name === "editor") {
+    return <EditorView key={route.id} id={route.id} />;
   }
+  if (route.name === "play" && route.id) {
+    return <PlayView key={route.id} id={route.id} />;
+  }
+  return (
+    <HomeView
+      key={importVersion}
+      themePreference={themePreference}
+      onThemePreferenceChange={setThemePreference}
+    />
+  );
 }

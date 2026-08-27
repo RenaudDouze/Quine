@@ -6,6 +6,7 @@ import GridCard from "../components/GridCard";
 import ShareModal from "../components/ShareModal";
 import { matchesSearch, sortByPinned, type Grid } from "../lib/bingo";
 import { loadGrids, saveGrids, uid } from "../lib/storage";
+import { now } from "../lib/time";
 import { navigate } from "../hooks/useHashRoute";
 
 const THEME_ICON: Record<ThemePreference, string> = { system: "🌓", light: "☀️", dark: "🌙" };
@@ -93,12 +94,13 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   const draggable = searchQuery.trim() === "" && filteredGrids.length === grids.length;
 
   function handleDuplicate(grid: Grid) {
+    const timestamp = now();
     const copy: Grid = {
       ...JSON.parse(JSON.stringify(grid)),
       id: uid(),
       title: grid.title + " (copie)",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: timestamp,
+      updatedAt: timestamp,
       // Une copie ne doit pas hériter des préférences d'organisation de
       // l'originale : épinglée, elle bousculerait le haut de liste sans
       // qu'on l'ait demandé ; archivée, elle disparaîtrait aussitôt créée

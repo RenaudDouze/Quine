@@ -175,9 +175,6 @@ button {
 .icon-btn:active {
   transform: scale(0.95);
 }
-.icon-btn-danger {
-  color: var(--danger);
-}
 
 /* Mode plein écran (PlayView) */
 .focus-exit-btn {

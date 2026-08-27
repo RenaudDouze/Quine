@@ -163,7 +163,7 @@ describe("buildGridSvg", () => {
       marked: i === 0,
     }));
     const svg = buildGridSvg(makeGrid({ cells, color: undefined }));
-    expect(cellRects(svg)[0].fill).toBe("#7c3aed");
+    expect(cellRects(svg)[0].fill).toBe("#2563eb");
   });
 
   it("gives an unmarked, non-free cell a white fill and dark text", () => {
@@ -173,14 +173,26 @@ describe("buildGridSvg", () => {
     expect(cellTextColors(svg)[0]).toBe("#0f172a");
   });
 
-  it("gives an unmarked free cell the free-cell tint (a state gameplay never actually produces, but the function must still render it correctly)", () => {
+  it("gives an unmarked free cell a tint of the default accent (a state gameplay never actually produces, but the function must still render it correctly)", () => {
     const cells = buildCells(["A", "B", "C", "D", "E", "F", "G", "H"], 3, true).map((c) =>
       c.free ? { ...c, marked: false } : c
     );
-    const svg = buildGridSvg(makeGrid({ cells, freeCenter: true }));
+    const svg = buildGridSvg(makeGrid({ cells, freeCenter: true, color: undefined }));
     const freeIndex = cells.findIndex((c) => c.free);
-    expect(cellRects(svg)[freeIndex].fill).toBe("#ede9fe");
-    expect(cellTextColors(svg)[freeIndex]).toBe("#5b21b6");
+    // Calculée indépendamment de tintWithWhite : 18% de #2563eb sur fond blanc.
+    expect(cellRects(svg)[freeIndex].fill).toBe("#d8e3fb");
+    expect(cellTextColors(svg)[freeIndex]).toBe("#2563eb");
+  });
+
+  it("tints an unmarked free cell from the grid's own custom color, not a fixed color", () => {
+    const cells = buildCells(["A", "B", "C", "D", "E", "F", "G", "H"], 3, true).map((c) =>
+      c.free ? { ...c, marked: false } : c
+    );
+    const svg = buildGridSvg(makeGrid({ cells, freeCenter: true, color: "#db2777" }));
+    const freeIndex = cells.findIndex((c) => c.free);
+    // Calculée indépendamment de tintWithWhite : 18% de #db2777 sur fond blanc.
+    expect(cellRects(svg)[freeIndex].fill).toBe("#f9d8e7");
+    expect(cellTextColors(svg)[freeIndex]).toBe("#db2777");
   });
 
   it("gives a marked cell white text regardless of whether it's free", () => {
