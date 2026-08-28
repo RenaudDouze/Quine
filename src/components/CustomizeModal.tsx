@@ -9,6 +9,8 @@ interface Props {
   onSetTitle: (title: string) => void;
   onSetColor: (color: string) => void;
   onSetBackgroundImage: (url: string | undefined) => void;
+  onShuffle: () => void;
+  onReset: () => void;
   onTogglePin: () => void;
   onToggleArchive: () => void;
   onDuplicate: () => void;
@@ -21,6 +23,8 @@ export default function CustomizeModal({
   onSetTitle,
   onSetColor,
   onSetBackgroundImage,
+  onShuffle,
+  onReset,
   onTogglePin,
   onToggleArchive,
   onDuplicate,
@@ -62,6 +66,18 @@ export default function CustomizeModal({
     setDraftBackground("");
     setBackgroundError(null);
     onSetBackgroundImage(undefined);
+  }
+
+  function handleShuffle() {
+    if (!window.confirm("Remélanger la grille ? Les cases cochées seront effacées.")) return;
+    onShuffle();
+    onClose();
+  }
+
+  function handleReset() {
+    if (!window.confirm("Réinitialiser les coches ? Toutes les cases seront décochées.")) return;
+    onReset();
+    onClose();
   }
 
   function handleTogglePin() {
@@ -169,6 +185,12 @@ export default function CustomizeModal({
         </section>
 
         <section className="modal-section">
+          <button className="modal-btn" onClick={handleShuffle}>
+            🔀 Remélanger
+          </button>
+          <button className="modal-btn" onClick={handleReset}>
+            ↺ Réinitialiser les coches
+          </button>
           <button className="modal-btn" onClick={handleTogglePin}>
             {grid.pinned ? "📌 Détacher cette grille" : "📌 Épingler en haut"}
           </button>

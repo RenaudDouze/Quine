@@ -24,6 +24,8 @@ function renderModal(gridOverrides: Partial<Grid> = {}) {
   const onSetTitle = vi.fn();
   const onSetColor = vi.fn();
   const onSetBackgroundImage = vi.fn();
+  const onShuffle = vi.fn();
+  const onReset = vi.fn();
   const onTogglePin = vi.fn();
   const onToggleArchive = vi.fn();
   const onDuplicate = vi.fn();
@@ -35,6 +37,8 @@ function renderModal(gridOverrides: Partial<Grid> = {}) {
       onSetTitle={onSetTitle}
       onSetColor={onSetColor}
       onSetBackgroundImage={onSetBackgroundImage}
+      onShuffle={onShuffle}
+      onReset={onReset}
       onTogglePin={onTogglePin}
       onToggleArchive={onToggleArchive}
       onDuplicate={onDuplicate}
@@ -47,6 +51,8 @@ function renderModal(gridOverrides: Partial<Grid> = {}) {
     onSetTitle,
     onSetColor,
     onSetBackgroundImage,
+    onShuffle,
+    onReset,
     onTogglePin,
     onToggleArchive,
     onDuplicate,
@@ -147,6 +153,46 @@ describe("CustomizeModal", () => {
     it("désactive le champ nom quand la grille est archivée", () => {
       renderModal({ archived: true, title: "Figée" });
       expect(screen.getByDisplayValue("Figée")).toBeDisabled();
+    });
+  });
+
+  describe("remélanger / réinitialiser", () => {
+    it("shuffles and closes once the shuffle confirmation is accepted", async () => {
+      const user = userEvent.setup();
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const { onShuffle, onClose } = renderModal();
+      await user.click(screen.getByRole("button", { name: /remélanger/i }));
+      expect(confirmSpy).toHaveBeenCalledWith("Remélanger la grille ? Les cases cochées seront effacées.");
+      expect(onShuffle).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not shuffle when the confirmation is declined", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { onShuffle, onClose } = renderModal();
+      await user.click(screen.getByRole("button", { name: /remélanger/i }));
+      expect(onShuffle).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("resets and closes once the reset confirmation is accepted", async () => {
+      const user = userEvent.setup();
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const { onReset, onClose } = renderModal();
+      await user.click(screen.getByRole("button", { name: /réinitialiser/i }));
+      expect(confirmSpy).toHaveBeenCalledWith("Réinitialiser les coches ? Toutes les cases seront décochées.");
+      expect(onReset).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not reset when the confirmation is declined", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { onReset, onClose } = renderModal();
+      await user.click(screen.getByRole("button", { name: /réinitialiser/i }));
+      expect(onReset).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
     });
   });
 
