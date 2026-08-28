@@ -30,5 +30,7 @@ export async function createGrid(
   }
   await page.getByPlaceholder(/écrivez chaque phrase/i).fill(items.join('\n'))
   await page.getByRole('button', { name: /générer la grille/i }).click()
-  await page.waitForURL(/#play\//)
+  // Comme +1, il n'y a plus d'écran dédié à une grille précise : la créer
+  // ramène à l'accueil, où son plateau s'affiche déjà en entier.
+  await page.waitForURL(/#home/)
 }

@@ -67,33 +67,6 @@ test('shows the win rule on the home card when it is not the default', async ({ 
   await expect(page.getByText(/carton plein/i)).toBeVisible()
 })
 
-test('enters and exits focus mode, hiding the topbar and play controls', async ({ page }) => {
-  await createGrid(page, {
-    title: 'Plein écran',
-    size: 3,
-    items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
-  })
-
-  await page.getByRole('button', { name: 'Mode plein écran' }).click()
-  await expect(page.getByRole('button', { name: '← Retour' })).not.toBeVisible()
-  await expect(page.getByRole('button', { name: 'Quitter le mode plein écran' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'Quitter le mode plein écran' }).click()
-  await expect(page.getByRole('button', { name: '← Retour' })).toBeVisible()
-})
-
-test('exits focus mode on Escape', async ({ page }) => {
-  await createGrid(page, {
-    title: 'Plein écran Échap',
-    size: 3,
-    items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
-  })
-
-  await page.getByRole('button', { name: 'Mode plein écran' }).click()
-  await page.keyboard.press('Escape')
-  await expect(page.getByRole('button', { name: '← Retour' })).toBeVisible()
-})
-
 test('enters and exits focus mode on the home screen, hiding the topbar', async ({ page }) => {
   await createGrid(page, {
     title: 'Plein écran accueil',

@@ -6,7 +6,6 @@ import { decodeGridsFromParam } from "./lib/share";
 import { loadGrids, saveGrids } from "./lib/storage";
 import HomeView from "./views/HomeView";
 import EditorView from "./views/EditorView";
-import PlayView from "./views/PlayView";
 
 export type ThemePreference = "system" | "light" | "dark";
 
@@ -67,9 +66,6 @@ export default function App() {
 
   if (route.name === "editor") {
     return <EditorView key={route.id} id={route.id} />;
-  }
-  if (route.name === "play" && route.id) {
-    return <PlayView key={route.id} id={route.id} />;
   }
   return (
     <HomeView

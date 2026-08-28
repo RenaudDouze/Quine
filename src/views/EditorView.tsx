@@ -68,16 +68,13 @@ export default function EditorView({ id }: Props) {
     }
 
     saveGrids(grids);
-    navigate("play", grid.id);
+    navigate("home");
   }
 
   return (
     <>
       <header className="topbar">
-        <button
-          className="btn btn-ghost"
-          onClick={() => navigate(existing ? "play" : "home", existing?.id)}
-        >
+        <button className="btn btn-ghost" onClick={() => navigate("home")}>
           ← Retour
         </button>
         <h1>{existing ? "Modifier la grille" : "Nouvelle grille"}</h1>

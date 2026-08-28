@@ -159,6 +159,10 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     persist(mode === "replace" ? imported : [...grids, ...imported]);
   }
 
+  function updateGrid(next: Grid) {
+    persist(grids.map((g) => (g.id === next.id ? { ...next, updatedAt: now() } : g)));
+  }
+
   function setColor(id: string, color: string) {
     persist(grids.map((g) => (g.id === id ? { ...g, color } : g)));
   }
@@ -190,7 +194,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
       {!focusMode && (
         <>
           <header className="topbar">
-            <h1>🎉 Bingo</h1>
+            <h1>Bingo</h1>
             <div className="topbar-actions">
               <button
                 className="icon-btn"
@@ -298,7 +302,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
               key={grid.id}
               grid={grid}
               draggable={draggable}
-              onPlay={() => navigate("play", grid.id)}
+              onChange={updateGrid}
               onEdit={() => navigate("editor", grid.id)}
               onShare={() => setShareTarget(grid)}
               onCustomize={() => setCustomizeTarget(grid)}
