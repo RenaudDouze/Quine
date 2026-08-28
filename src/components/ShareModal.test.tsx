@@ -2,12 +2,22 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import QRCode from "qrcode";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildCells, type Grid } from "../lib/bingo";
+import { downloadGridSvg } from "../lib/gridImage";
+import { printGrid } from "../lib/print";
 import ShareModal from "./ShareModal";
 
 vi.mock("qrcode", () => ({
   default: {
     toDataURL: vi.fn(),
   },
+}));
+
+vi.mock("../lib/gridImage", () => ({
+  downloadGridSvg: vi.fn(),
+}));
+
+vi.mock("../lib/print", () => ({
+  printGrid: vi.fn(),
 }));
 
 function makeGrid(overrides: Partial<Grid> = {}): Grid {
@@ -259,6 +269,30 @@ describe("ShareModal", () => {
         fireEvent.change(input, { target: { files: [file] } });
       });
       expect(input.value).toBe("");
+    });
+  });
+
+  describe("export image et impression", () => {
+    it("n'affiche pas les boutons export/impression pour plusieurs grilles", () => {
+      render(<ShareModal {...defaultProps} grids={[makeGrid({ id: "a" }), makeGrid({ id: "b" })]} onClose={vi.fn()} />);
+      expect(screen.queryByText(/Exporter en image/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Imprimer/)).not.toBeInTheDocument();
+    });
+
+    it("exporte la grille en image au clic", async () => {
+      const grid = makeGrid();
+      render(<ShareModal {...defaultProps} grids={[grid]} onClose={vi.fn()} />);
+      await waitFor(() => expect(screen.getByText(/Exporter en image/)).toBeInTheDocument());
+      fireEvent.click(screen.getByText(/Exporter en image/));
+      expect(downloadGridSvg).toHaveBeenCalledWith(grid);
+    });
+
+    it("imprime la grille au clic", async () => {
+      const grid = makeGrid();
+      render(<ShareModal {...defaultProps} grids={[grid]} onClose={vi.fn()} />);
+      await waitFor(() => expect(screen.getByText(/Imprimer/)).toBeInTheDocument());
+      fireEvent.click(screen.getByText(/Imprimer/));
+      expect(printGrid).toHaveBeenCalledWith(grid.id);
     });
   });
 

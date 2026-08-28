@@ -1,7 +1,6 @@
 import { Reorder, useDragControls } from "framer-motion";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { buildCells, checkWin, WIN_RULES, type Grid } from "../lib/bingo";
-import { downloadGridSvg } from "../lib/gridImage";
 
 interface Props {
   grid: Grid;
@@ -25,7 +24,6 @@ const CONFETTI_COLORS = ["#f43f5e", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", 
  * plutôt que des pictogrammes voyants. */
 export default function GridCard({ grid, draggable, onChange, onEdit, onShare, onCustomize }: Props) {
   const dragControls = useDragControls();
-  const cardRef = useRef<HTMLDivElement>(null);
 
   const { hasWin, winSet } = useMemo(() => checkWin(grid.cells, grid.size, grid.winRule), [grid]);
 
@@ -96,24 +94,12 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
     onChange({ ...grid, cells });
   }
 
-  // N'imprime que CETTE carte : toutes les grilles de la liste partagent
-  // maintenant la même page (voir @media print dans index.css), donc
-  // window.print() sans cette marque imprimerait toute la liste plutôt que
-  // la seule grille demandée.
-  function handlePrint() {
-    const el = cardRef.current;
-    el?.setAttribute("data-printing", "true");
-    const cleanup = () => el?.removeAttribute("data-printing");
-    window.addEventListener("afterprint", cleanup, { once: true });
-    window.print();
-  }
-
   return (
     <Reorder.Item
       as="div"
-      ref={cardRef}
       value={grid}
       id={grid.id}
+      data-grid-id={grid.id}
       dragListener={false}
       dragControls={dragControls}
       className="grid-item"
@@ -152,17 +138,6 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
           onClick={onCustomize}
         >
           ⚙
-        </button>
-        <button
-          className="icon-btn"
-          title="Exporter en image"
-          aria-label="Exporter en image"
-          onClick={() => downloadGridSvg(grid)}
-        >
-          🖼
-        </button>
-        <button className="icon-btn" title="Imprimer" aria-label="Imprimer" onClick={handlePrint}>
-          🖨
         </button>
       </div>
 

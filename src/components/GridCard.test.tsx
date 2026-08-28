@@ -4,12 +4,7 @@ import { Reorder } from "framer-motion";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildCells, type Grid } from "../lib/bingo";
-import { downloadGridSvg } from "../lib/gridImage";
 import GridCard from "./GridCard";
-
-vi.mock("../lib/gridImage", () => ({
-  downloadGridSvg: vi.fn(),
-}));
 
 function makeGrid(overrides: Partial<Grid> = {}): Grid {
   const size = overrides.size ?? 3;
@@ -63,7 +58,6 @@ function renderCard(gridOverrides: Partial<Grid> = {}, draggable = true) {
 
 afterEach(() => {
   cleanup();
-  vi.mocked(downloadGridSvg).mockClear();
 });
 
 describe("GridCard", () => {
@@ -369,39 +363,9 @@ describe("GridCard", () => {
     });
   });
 
-  describe("export et impression", () => {
-    it("downloads an SVG image of the grid when Exporter en image is clicked", async () => {
-      const user = userEvent.setup();
-      const { grid } = renderCard({ title: "À exporter" });
-      await user.click(screen.getByRole("button", { name: "Exporter en image" }));
-
-      expect(downloadGridSvg).toHaveBeenCalledTimes(1);
-      expect(downloadGridSvg).toHaveBeenCalledWith(expect.objectContaining({ title: grid.title }));
-    });
-
-    it("calls window.print when Imprimer is clicked", async () => {
-      const user = userEvent.setup();
-      const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
-      renderCard();
-      await user.click(screen.getByRole("button", { name: "Imprimer" }));
-
-      expect(printSpy).toHaveBeenCalledTimes(1);
-      printSpy.mockRestore();
-    });
-
-    it("marks only this card for printing, and clears the mark after printing", async () => {
-      const user = userEvent.setup();
-      vi.spyOn(window, "print").mockImplementation(() => {});
-      renderCard();
-      const card = document.querySelector(".grid-item") as HTMLElement;
-      expect(card).not.toHaveAttribute("data-printing");
-
-      await user.click(screen.getByRole("button", { name: "Imprimer" }));
-      expect(card).toHaveAttribute("data-printing", "true");
-
-      fireEvent(window, new Event("afterprint"));
-      expect(card).not.toHaveAttribute("data-printing");
-    });
+  it("carries the grid's own id as data-grid-id, for print isolation (see lib/print)", () => {
+    renderCard({ id: "g42" });
+    expect(document.querySelector('[data-grid-id="g42"]')).toBeInTheDocument();
   });
 
   describe("couleur personnalisée", () => {

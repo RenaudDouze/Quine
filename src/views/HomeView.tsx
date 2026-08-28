@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Reorder } from "framer-motion";
 import type { ThemePreference } from "../App";
 import CustomizeModal from "../components/CustomizeModal";
+import EditModal from "../components/EditModal";
 import GridCard from "../components/GridCard";
 import ShareModal from "../components/ShareModal";
 import { matchesSearch, sortByPinned, type Grid } from "../lib/bingo";
@@ -25,6 +26,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   const [syncOpen, setSyncOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<Grid | null>(null);
   const [customizeTarget, setCustomizeTarget] = useState<Grid | null>(null);
+  const [editTarget, setEditTarget] = useState<Grid | null>(null);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -303,7 +305,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
               grid={grid}
               draggable={draggable}
               onChange={updateGrid}
-              onEdit={() => navigate("editor", grid.id)}
+              onEdit={() => setEditTarget(grid)}
               onShare={() => setShareTarget(grid)}
               onCustomize={() => setCustomizeTarget(grid)}
             />
@@ -346,6 +348,10 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
           onDuplicate={() => handleDuplicate(customizeTarget)}
           onDelete={() => handleDelete(customizeTarget)}
         />
+      )}
+
+      {editTarget && (
+        <EditModal grid={editTarget} onClose={() => setEditTarget(null)} onSave={updateGrid} />
       )}
 
       {undo && (
