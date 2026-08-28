@@ -193,11 +193,13 @@ button {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.08);
 }
 
-/* Home / grid list */
+/* Home / grid list : comme +1, chaque grille s'affiche en entier (plateau
+   jouable compris) directement dans la liste — il n'y a plus d'écran séparé
+   pour jouer une grille précise. */
 .grid-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
   padding-bottom: 24px;
 }
 
@@ -208,11 +210,12 @@ button {
      posé juste ici, sans dépendre de l'ordre des frères dans tout le document. */
   isolation: isolate;
   display: flex;
-  align-items: stretch;
-  gap: 8px;
+  flex-direction: column;
+  align-items: center;
   background: var(--surface);
   border: 1px solid var(--surface-border);
   border-radius: 22px;
+  padding: 20px 16px 16px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
   overflow: hidden;
 }
@@ -252,84 +255,70 @@ button {
   margin-right: 4px;
 }
 
-.drag-handle {
-  align-self: center;
+/* Comme .counter-options-row dans +1 : la poignée de glisser et les actions
+   flottent en superposition au-dessus de la carte plutôt que de partager une
+   ligne avec le titre, qui a maintenant toute la largeur pour lui. */
+.grid-options-row {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.drag-handle,
+.grid-options-row .icon-btn {
   flex-shrink: 0;
   width: 26px;
   height: 26px;
-  margin-left: 6px;
+  padding: 0;
   border: none;
   border-radius: 50%;
   background: var(--bg-2);
   color: var(--text-dim);
-  font-size: 0.8rem;
+  box-shadow: none;
+  font-size: 0.85rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: grab;
-  touch-action: none;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.drag-handle:hover {
-  background: color-mix(in srgb, var(--card-accent, var(--accent)) 18%, var(--bg-2));
-  color: var(--card-accent, var(--accent));
+.drag-handle {
+  font-size: 0.8rem;
+  cursor: grab;
+  touch-action: none;
 }
 
 .drag-handle:active {
   cursor: grabbing;
 }
 
-.card {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  background: transparent;
-  border: none;
-  text-align: left;
-  padding: 16px 16px 14px;
-  min-width: 0;
+.drag-handle:hover,
+.grid-options-row .icon-btn:hover {
+  background: color-mix(in srgb, var(--card-accent, var(--accent)) 18%, var(--bg-2));
+  color: var(--card-accent, var(--accent));
 }
 
+/* Comme .counter-name dans +1 : centré, avec assez de marge en haut pour
+   dégager la ligne d'actions posée en superposition juste au-dessus. */
 .card-title {
-  font-weight: 700;
-  font-size: 1.05rem;
+  margin: 18px 0 0;
+  font-weight: 600;
+  font-size: 1rem;
   color: var(--text);
+  text-align: center;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
 }
 
 .card-meta {
   font-size: 0.82rem;
   color: var(--text-dim);
-}
-
-.card-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-right: 10px;
-}
-
-.card-actions .icon-btn {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: none;
-  background: var(--bg-2);
-  color: var(--text-dim);
-  box-shadow: none;
-  font-size: 0.85rem;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.card-actions .icon-btn:hover {
-  background: color-mix(in srgb, var(--card-accent, var(--accent)) 18%, var(--bg-2));
-  color: var(--card-accent, var(--accent));
+  text-align: center;
 }
 
 .empty-state {
@@ -418,13 +407,13 @@ button {
   width: 100%;
 }
 
-/* Board */
+/* Board : posé directement dans la carte de la grille (plus d'écran dédié à
+   une grille précise), plafonné en largeur pour ne pas étirer démesurément
+   les cases sur les grandes cartes desktop. */
 .board-wrap {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 0 16px;
+  width: 100%;
+  max-width: 480px;
+  padding: 8px 0 4px;
 }
 
 .board {
@@ -486,32 +475,36 @@ button {
   overflow: hidden;
 }
 
-.play-actions {
+.grid-actions-row {
   display: flex;
   gap: 10px;
-  padding-bottom: 12px;
+  width: 100%;
+  max-width: 480px;
 }
-.play-actions .btn {
+.grid-actions-row .btn {
   flex: 1;
 }
 
-/* Bingo banner */
+/* Bandeau de victoire : superposé à SA grille plutôt qu'à tout l'écran,
+   comme .counter-celebration dans +1 — plusieurs grilles déjà gagnées
+   peuvent maintenant être visibles côte à côte sur la même page, un
+   bandeau plein écran les ferait toutes se chevaucher au chargement. */
 .bingo-banner {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50;
+  z-index: 3;
   animation: fadeIn 0.2s ease;
 }
 .bingo-banner-inner {
   background: linear-gradient(135deg, var(--accent), #c026d3);
   color: white;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 800;
-  padding: 28px 40px;
+  padding: 20px 28px;
   border-radius: 24px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
   animation: pop 0.35s cubic-bezier(.34,1.56,.64,1);
@@ -786,11 +779,14 @@ button {
   padding: 0;
 }
 
-/* Confetti de victoire */
+/* Confetti de victoire : comme .counter-celebration dans +1, superposé à SA
+   grille (position absolute dans .grid-item, pas fixed plein écran) —
+   plusieurs grilles peuvent maintenant fêter une victoire en même temps sur
+   la même page. */
 .bingo-celebration {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 55;
+  z-index: 3;
   pointer-events: none;
   overflow: hidden;
 }
@@ -815,31 +811,45 @@ button {
     opacity: 1;
   }
   100% {
-    transform: rotate(var(--angle)) translateY(-45vh) scale(0.4);
+    transform: rotate(var(--angle)) translateY(-110px) scale(0.4);
     opacity: 0;
   }
 }
 
-/* Impression d'une grille (bouton "🖨️ Imprimer" de PlayView) : ne garde que
-   le titre et le carton, sans les boutons ni le fond dégradé de l'appli. */
+/* Impression d'une grille (bouton "🖨️ Imprimer" d'une carte) : comme les
+   grilles s'affichent maintenant toutes ensemble sur la même page (plus
+   d'écran dédié à une grille précise), n'imprimer QUE celle demandée
+   suppose de masquer tout le reste — le chrome de la page, et chaque autre
+   carte de grille. La carte à imprimer est marquée data-printing="true" par
+   son propre bouton juste avant window.print() (voir GridCard). */
 @media print {
   body {
     background: #ffffff;
   }
 
-  .topbar .icon-btn,
-  .topbar .btn,
-  .play-actions,
-  .bingo-banner,
-  .bingo-celebration,
+  .topbar,
+  .archive-toggle,
+  .search-bar,
+  .empty-state,
   .focus-exit-btn {
     display: none !important;
   }
 
-  .topbar {
-    position: static;
+  .grid-item {
+    display: none !important;
+  }
+
+  .grid-item[data-printing="true"] {
+    display: flex !important;
     box-shadow: none;
-    justify-content: center;
+    border: none;
+  }
+
+  .grid-options-row,
+  .grid-actions-row,
+  .bingo-banner,
+  .bingo-celebration {
+    display: none !important;
   }
 
   .board-wrap {

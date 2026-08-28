@@ -92,7 +92,7 @@ test('exports and re-imports a JSON backup, preserving marked cells', async ({ p
 
   await page.getByRole('button', { name: 'Synchroniser mes grilles' }).click()
   const downloadPromise = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Exporter' }).click()
+  await page.getByRole('button', { name: 'Exporter', exact: true }).click()
   const download = await downloadPromise
   const path = await download.path()
   expect(path).toBeTruthy()

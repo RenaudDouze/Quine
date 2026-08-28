@@ -9,7 +9,7 @@ test('shows the empty state on first visit', async ({ page }) => {
   await expect(page.getByText(/aucune grille pour le moment/i)).toBeVisible()
 })
 
-test('creates a grid and lands on the play screen', async ({ page }) => {
+test('creates a grid and shows its playable board directly on the home screen', async ({ page }) => {
   await createGrid(page, {
     title: 'Bingo réunion',
     size: 3,

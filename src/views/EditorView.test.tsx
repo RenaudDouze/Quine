@@ -168,15 +168,15 @@ describe("EditorView — editing an existing grid", () => {
     );
   });
 
-  it("navigates back to play (not home) when editing an existing grid", async () => {
+  it("navigates back to home when editing an existing grid", async () => {
     const user = userEvent.setup();
     seedGrid();
     render(<EditorView id="g1" />);
     await user.click(screen.getByRole("button", { name: /retour/i }));
-    expect(window.location.hash).toBe("#play/g1");
+    expect(window.location.hash).toBe("#home");
   });
 
-  it("updates the grid in place and redirects to play", async () => {
+  it("updates the grid in place and redirects to home", async () => {
     const user = userEvent.setup();
     seedGrid();
     render(<EditorView id="g1" />);
@@ -186,7 +186,7 @@ describe("EditorView — editing an existing grid", () => {
     await user.type(titleInput, "Nouveau titre");
     await user.click(screen.getByRole("button", { name: /générer la grille/i }));
 
-    expect(window.location.hash).toBe("#play/g1");
+    expect(window.location.hash).toBe("#home");
     const grids = loadGrids();
     expect(grids).toHaveLength(1);
     expect(grids[0].title).toBe("Nouveau titre");

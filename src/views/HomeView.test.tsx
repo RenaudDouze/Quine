@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Grid } from "../lib/bingo";
+import { buildCells, type Grid } from "../lib/bingo";
 import { loadGrids, saveGrids } from "../lib/storage";
 import HomeView from "./HomeView";
 
@@ -20,13 +20,16 @@ function renderHome(props: Partial<Parameters<typeof HomeView>[0]> = {}) {
 }
 
 function makeGrid(overrides: Partial<Grid> = {}): Grid {
+  const size = overrides.size ?? 3;
+  const freeCenter = overrides.freeCenter ?? false;
+  const items = overrides.items ?? ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   return {
     id: overrides.id ?? "grid-1",
     title: overrides.title ?? "Ma grille",
-    size: overrides.size ?? 3,
-    freeCenter: overrides.freeCenter ?? false,
-    items: overrides.items ?? ["A", "B", "C", "D", "E", "F", "G", "H", "I"],
-    cells: overrides.cells ?? [],
+    size,
+    freeCenter,
+    items,
+    cells: overrides.cells ?? buildCells(items, size, freeCenter),
     createdAt: overrides.createdAt ?? 1,
     updatedAt: overrides.updatedAt ?? 1,
     ...overrides,
@@ -82,12 +85,24 @@ describe("HomeView", () => {
     expect(screen.getByText(/case libre/i)).toBeInTheDocument();
   });
 
-  it("navigates to play when a card is clicked", async () => {
-    const user = userEvent.setup();
+  it("renders the grid's board directly on the home page, ready to play", () => {
     saveGrids([makeGrid({ id: "g1" })]);
     renderHome();
-    await user.click(screen.getByText("Ma grille"));
-    expect(window.location.hash).toBe("#play/g1");
+    expect(screen.getAllByRole("button", { name: /^[A-I]$/ })).toHaveLength(9);
+  });
+
+  it("marks a cell from the home page and persists it on the targeted grid only", async () => {
+    const user = userEvent.setup();
+    saveGrids([makeGrid({ id: "g1" }), makeGrid({ id: "g2", title: "Autre grille" })]);
+    renderHome();
+    const card = screen.getByText("Ma grille").closest(".grid-item") as HTMLElement;
+    const cell = within(card).getAllByRole("button", { name: /^[A-I]$/ })[0];
+    await user.click(cell);
+    expect(cell).toHaveClass("marked");
+
+    const grids = loadGrids();
+    expect(grids.find((g) => g.id === "g1")!.cells.some((c) => c.marked)).toBe(true);
+    expect(grids.find((g) => g.id === "g2")!.cells.some((c) => c.marked)).toBe(false);
   });
 
   it("navigates to the editor with the grid id when editing", async () => {
