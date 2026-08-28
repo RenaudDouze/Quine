@@ -1,6 +1,6 @@
 import { Reorder, useDragControls } from "framer-motion";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { buildCells, checkWin, WIN_RULES, type Grid } from "../lib/bingo";
+import { checkWin, WIN_RULES, type Grid } from "../lib/bingo";
 
 interface Props {
   grid: Grid;
@@ -14,8 +14,7 @@ interface Props {
 // Durée d'affichage du confetti à l'apparition du bandeau Bingo.
 const CELEBRATION_DURATION_MS = 1100;
 // Éventail limité à la moitié supérieure, comme .counter-confetti dans +1 :
-// contrairement à un bandeau plein écran, celui-ci reste posé sur SA carte,
-// dont le bas est occupé par les boutons Remélanger/Réinitialiser.
+// contrairement à un bandeau plein écran, celui-ci reste posé sur SA carte.
 const CONFETTI_ANGLES = [-90, -65, -40, -15, 15, 40, 65, 90, -110, 110];
 const CONFETTI_COLORS = ["#f43f5e", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"];
 
@@ -80,17 +79,6 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
       }
     }
 
-    onChange({ ...grid, cells });
-  }
-
-  function handleShuffle() {
-    if (!window.confirm("Remélanger la grille ? Les cases cochées seront effacées.")) return;
-    onChange({ ...grid, cells: buildCells(grid.items, grid.size, grid.freeCenter) });
-  }
-
-  function handleReset() {
-    if (!window.confirm("Réinitialiser les coches ? Toutes les cases seront décochées.")) return;
-    const cells = grid.cells.map((c) => (c.free ? c : { ...c, marked: false }));
     onChange({ ...grid, cells });
   }
 
@@ -176,15 +164,6 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
             </button>
           ))}
         </div>
-      </div>
-
-      <div className="grid-actions-row">
-        <button className="btn btn-secondary" onClick={handleShuffle}>
-          🔀 Remélanger
-        </button>
-        <button className="btn btn-secondary" onClick={handleReset}>
-          ↺ Réinitialiser les coches
-        </button>
       </div>
 
       {bannerVisible && (

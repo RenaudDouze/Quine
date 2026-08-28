@@ -5,7 +5,7 @@ import CustomizeModal from "../components/CustomizeModal";
 import EditModal from "../components/EditModal";
 import GridCard from "../components/GridCard";
 import ShareModal from "../components/ShareModal";
-import { matchesSearch, sortByPinned, type Grid } from "../lib/bingo";
+import { buildCells, matchesSearch, sortByPinned, type Grid } from "../lib/bingo";
 import { loadGrids, saveGrids, uid } from "../lib/storage";
 import { now } from "../lib/time";
 import { navigate } from "../hooks/useHashRoute";
@@ -167,6 +167,22 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
 
   function setTitle(id: string, title: string) {
     persist(grids.map((g) => (g.id === id ? { ...g, title } : g)));
+  }
+
+  function shuffleGrid(id: string) {
+    persist(
+      grids.map((g) =>
+        g.id === id ? { ...g, cells: buildCells(g.items, g.size, g.freeCenter) } : g
+      )
+    );
+  }
+
+  function resetGrid(id: string) {
+    persist(
+      grids.map((g) =>
+        g.id === id ? { ...g, cells: g.cells.map((c) => (c.free ? c : { ...c, marked: false })) } : g
+      )
+    );
   }
 
   function setColor(id: string, color: string) {
@@ -348,6 +364,8 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
           onSetTitle={(title) => setTitle(customizeTarget.id, title)}
           onSetColor={(color) => setColor(customizeTarget.id, color)}
           onSetBackgroundImage={(url) => setBackgroundImage(customizeTarget.id, url)}
+          onShuffle={() => shuffleGrid(customizeTarget.id)}
+          onReset={() => resetGrid(customizeTarget.id)}
           onTogglePin={() => togglePin(customizeTarget.id)}
           onToggleArchive={() => toggleArchive(customizeTarget.id)}
           onDuplicate={() => handleDuplicate(customizeTarget)}

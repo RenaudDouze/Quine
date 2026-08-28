@@ -198,7 +198,7 @@ describe("HomeView", () => {
     });
   });
 
-  describe("personnalisation (couleur, image de fond, épinglage, archivage, duplication)", () => {
+  describe("personnalisation (nom, couleur, image de fond, mélange, réinitialisation, épinglage, archivage, duplication)", () => {
     it("opens and closes the customize modal", async () => {
       const user = userEvent.setup();
       saveGrids([makeGrid({ id: "g1", title: "Ma grille" })]);
@@ -226,6 +226,78 @@ describe("HomeView", () => {
       expect(grids.find((g) => g.id === "g1")?.title).toBe("Nouveau nom");
       expect(grids.find((g) => g.id === "g2")?.title).toBe("Autre grille");
       expect(screen.getByText('Personnaliser « Ma grille »')).toBeInTheDocument();
+    });
+
+    it("reshuffles the targeted grid's cells only, once confirmed, and closes the modal", async () => {
+      const user = userEvent.setup();
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      saveGrids([
+        makeGrid({ id: "g1", title: "Ma grille" }),
+        makeGrid({ id: "g2", title: "Autre grille" }),
+      ]);
+      renderHome();
+      const before = loadGrids().find((g) => g.id === "g1")!.cells.map((c) => c.label);
+      const otherBefore = loadGrids().find((g) => g.id === "g2")!.cells.map((c) => c.label);
+
+      await openCustomize(user, "Ma grille");
+      await user.click(screen.getByRole("button", { name: /remélanger/i }));
+      expect(confirmSpy).toHaveBeenCalledWith("Remélanger la grille ? Les cases cochées seront effacées.");
+
+      const grids = loadGrids();
+      const after = grids.find((g) => g.id === "g1")!.cells.map((c) => c.label);
+      expect(after.slice().sort()).toEqual(before.slice().sort());
+      expect(grids.find((g) => g.id === "g2")!.cells.map((c) => c.label)).toEqual(otherBefore);
+      expect(screen.queryByText('Personnaliser « Ma grille »')).not.toBeInTheDocument();
+    });
+
+    it("does not reshuffle when the confirmation is declined", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+      saveGrids([makeGrid({ id: "g1", title: "Ma grille" })]);
+      renderHome();
+      const before = loadGrids()[0].cells.map((c) => c.label);
+
+      await openCustomize(user, "Ma grille");
+      await user.click(screen.getByRole("button", { name: /remélanger/i }));
+
+      expect(loadGrids()[0].cells.map((c) => c.label)).toEqual(before);
+      expect(screen.getByText('Personnaliser « Ma grille »')).toBeInTheDocument();
+    });
+
+    it("resets marks on the targeted grid only, once confirmed, keeping the free cell marked", async () => {
+      const user = userEvent.setup();
+      const items = Array.from({ length: 24 }, (_, i) => `item-${i}`);
+      saveGrids([
+        makeGrid({ id: "g1", title: "Ma grille", size: 5, freeCenter: true, items }),
+        makeGrid({ id: "g2", title: "Autre grille" }),
+      ]);
+      renderHome();
+      const card = screen.getByText("Ma grille").closest(".grid-item") as HTMLElement;
+      await user.click(within(card).getAllByRole("button", { name: /^item-/ })[0]);
+
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+      await openCustomize(user, "Ma grille");
+      await user.click(screen.getByRole("button", { name: /réinitialiser/i }));
+
+      const saved = loadGrids().find((g) => g.id === "g1")!;
+      expect(saved.cells.find((c) => c.free)!.marked).toBe(true);
+      expect(saved.cells.filter((c) => !c.free).every((c) => !c.marked)).toBe(true);
+    });
+
+    it("does not reset marks when the confirmation is declined", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "Ma grille" })]);
+      renderHome();
+      const card = screen.getByText("Ma grille").closest(".grid-item") as HTMLElement;
+      const cell = within(card).getAllByRole("button", { name: /^[A-I]$/ })[0];
+      await user.click(cell);
+      expect(cell).toHaveClass("marked");
+
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+      await openCustomize(user, "Ma grille");
+      await user.click(screen.getByRole("button", { name: /réinitialiser/i }));
+
+      expect(cell).toHaveClass("marked");
     });
 
     it("persists the chosen color on the targeted grid only, leaving other grids untouched", async () => {

@@ -475,16 +475,6 @@ button {
   overflow: hidden;
 }
 
-.grid-actions-row {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-  max-width: 480px;
-}
-.grid-actions-row .btn {
-  flex: 1;
-}
-
 /* Bandeau de victoire : superposé à SA grille plutôt qu'à tout l'écran,
    comme .counter-celebration dans +1 — plusieurs grilles déjà gagnées
    peuvent maintenant être visibles côte à côte sur la même page, un
@@ -846,7 +836,6 @@ button {
   }
 
   .grid-options-row,
-  .grid-actions-row,
   .bingo-banner,
   .bingo-celebration {
     display: none !important;

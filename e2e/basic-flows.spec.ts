@@ -69,6 +69,7 @@ test('reset clears marks without touching a free center cell', async ({ page }) 
   await firstCell.click()
   await expect(firstCell).toHaveClass(/marked/)
 
+  await page.getByRole('button', { name: 'Personnaliser', exact: true }).click()
   page.once('dialog', (dialog) => dialog.accept())
   await page.getByRole('button', { name: /réinitialiser les coches/i }).click()
 
@@ -87,6 +88,7 @@ test('keeps marks when the reset confirmation is declined', async ({ page }) => 
   await firstCell.click()
   await expect(firstCell).toHaveClass(/marked/)
 
+  await page.getByRole('button', { name: 'Personnaliser', exact: true }).click()
   page.once('dialog', (dialog) => dialog.dismiss())
   await page.getByRole('button', { name: /réinitialiser les coches/i }).click()
 
@@ -101,13 +103,16 @@ test('reshuffles the grid only once the confirmation is accepted', async ({ page
   })
   const before = await page.locator('.cell-label').allTextContents()
 
+  await page.getByRole('button', { name: 'Personnaliser', exact: true }).click()
   page.once('dialog', (dialog) => dialog.dismiss())
   await page.getByRole('button', { name: /remélanger/i }).click()
   await expect(page.locator('.cell-label')).toHaveText(before)
 
+  await page.getByRole('button', { name: 'Fermer' }).click()
   await page.locator('.cell').first().click()
   await expect(page.locator('.cell.marked')).toHaveCount(1)
 
+  await page.getByRole('button', { name: 'Personnaliser', exact: true }).click()
   page.once('dialog', (dialog) => dialog.accept())
   await page.getByRole('button', { name: /remélanger/i }).click()
   await expect(page.locator('.cell.marked')).toHaveCount(0)

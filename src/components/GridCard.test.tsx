@@ -268,66 +268,6 @@ describe("GridCard", () => {
     expect(screen.queryByText(/bingo !/i)).not.toBeInTheDocument();
   });
 
-  it("reshuffles the grid on shuffle and resets marks (except free cells) on reset, once confirmed", async () => {
-    const user = userEvent.setup();
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    const { onChange } = renderCard();
-    const before = screen.getAllByRole("button", { name: /^[A-I]$/ }).map((c) => c.textContent);
-
-    await user.click(screen.getByRole("button", { name: /remélanger/i }));
-    expect(confirmSpy).toHaveBeenCalledWith("Remélanger la grille ? Les cases cochées seront effacées.");
-    const after = screen.getAllByRole("button", { name: /^[A-I]$/ }).map((c) => c.textContent);
-    expect(after.slice().sort()).toEqual(before.slice().sort());
-
-    const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
-    await user.click(cells[0]);
-    expect(cells[0]).toHaveClass("marked");
-
-    await user.click(screen.getByRole("button", { name: /réinitialiser/i }));
-    expect(confirmSpy).toHaveBeenCalledWith("Réinitialiser les coches ? Toutes les cases seront décochées.");
-    expect(onChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({ cells: expect.arrayContaining([expect.objectContaining({ marked: false })]) })
-    );
-  });
-
-  it("does not reshuffle when the confirmation is declined", async () => {
-    const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(false);
-    const { onChange } = renderCard();
-
-    await user.click(screen.getByRole("button", { name: /remélanger/i }));
-    expect(onChange).not.toHaveBeenCalled();
-  });
-
-  it("does not reset marks when the confirmation is declined", async () => {
-    const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    renderCard();
-    const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
-    await user.click(cells[0]);
-    expect(cells[0]).toHaveClass("marked");
-
-    vi.spyOn(window, "confirm").mockReturnValue(false);
-    await user.click(screen.getByRole("button", { name: /réinitialiser/i }));
-    expect(cells[0]).toHaveClass("marked");
-  });
-
-  it("keeps the free cell marked when resetting a grid with a free center", async () => {
-    const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    renderCard({
-      size: 5,
-      freeCenter: true,
-      items: Array.from({ length: 24 }, (_, i) => `item-${i}`),
-    });
-
-    await user.click(screen.getByRole("button", { name: /réinitialiser/i }));
-    expect(screen.getByText("GRATUIT").closest("button")).toHaveClass("marked");
-    for (const cell of screen.getAllByRole("button", { name: /^item-/ })) {
-      expect(cell).not.toHaveClass("marked");
-    }
-  });
-
   describe("condition de victoire personnalisée", () => {
     it('wins via "carton plein" only once every cell is marked, not from a single complete line', async () => {
       const user = userEvent.setup();
