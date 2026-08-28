@@ -62,12 +62,15 @@ export default function GridCard({ grid, draggable, onPlay, onEdit, onShare, onC
         </span>
       </button>
 
+      {/* Comme les icônes de carte de +1 (⠿ ± ⚙ ↗ ⋯) : des glyphes
+          monochromes, pas des émojis colorés — un style neutre cohérent
+          avec le reste du chrome plutôt que des pictogrammes voyants. */}
       <div className="card-actions">
         <button className="icon-btn" title="Modifier" aria-label="Modifier" onClick={onEdit}>
-          ✏️
+          ✏
         </button>
         <button className="icon-btn" title="Partager" aria-label="Partager" onClick={onShare}>
-          📤
+          ↗
         </button>
         <button
           className="icon-btn"
@@ -75,7 +78,7 @@ export default function GridCard({ grid, draggable, onPlay, onEdit, onShare, onC
           aria-label="Personnaliser"
           onClick={onCustomize}
         >
-          ⚙️
+          ⚙
         </button>
       </div>
     </Reorder.Item>

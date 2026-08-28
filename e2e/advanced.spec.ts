@@ -94,6 +94,23 @@ test('exits focus mode on Escape', async ({ page }) => {
   await expect(page.getByRole('button', { name: '← Retour' })).toBeVisible()
 })
 
+test('enters and exits focus mode on the home screen, hiding the topbar', async ({ page }) => {
+  await createGrid(page, {
+    title: 'Plein écran accueil',
+    size: 3,
+    items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
+  })
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Mode plein écran' }).click()
+  await expect(page.getByRole('button', { name: '+ Nouvelle grille' })).not.toBeVisible()
+  await expect(page.getByRole('button', { name: 'Quitter le mode plein écran' })).toBeVisible()
+  await expect(page.getByText('Plein écran accueil')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Quitter le mode plein écran' }).click()
+  await expect(page.getByRole('button', { name: '+ Nouvelle grille' })).toBeVisible()
+})
+
 test('exports the current grid as an SVG image', async ({ page }) => {
   await createGrid(page, {
     title: 'À exporter',

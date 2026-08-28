@@ -38,6 +38,45 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   const [undo, setUndo] = useState<{ label: string; grids: Grid[] } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // Masque l'en-tête (titre, icônes, recherche, filtre archivés) pour ne
+  // garder que la liste de grilles à l'écran (utile pour la projeter sur une
+  // TV pendant un événement), et passe en plein écran natif quand c'est
+  // supporté (absent sur Safari iOS, où le masquage de l'en-tête reste quand
+  // même utile seul). Même logique que PlayView.
+  const [focusMode, setFocusMode] = useState(false);
+
+  useEffect(() => {
+    if (focusMode) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, [focusMode]);
+
+  // Synchronise l'état si le plein écran natif est quitté autrement que par
+  // notre bouton (ex : touche Échap gérée nativement par le navigateur).
+  /* oxlint-disable react/set-state-in-effect -- réagit à un événement externe
+     au navigateur (sortie du plein écran natif), pas dérivable au rendu */
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) setFocusMode(false);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  // Filet de sécurité pour les navigateurs sans API Fullscreen (ex : Safari
+  // iOS) : l'événement `fullscreenchange` ci-dessus n'y est jamais émis.
+  useEffect(() => {
+    if (!focusMode) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFocusMode(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [focusMode]);
+  /* oxlint-enable react/set-state-in-effect */
+
   // Action rapide depuis un raccourci de l'app installée (?action=new|sync),
   // déclarés dans le manifest PWA (voir vite.config.ts).
   /* oxlint-disable react/set-state-in-effect -- synchronise avec l'URL au
@@ -138,77 +177,101 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
 
   return (
     <>
-      <header className="topbar">
-        <h1>🎉 Mes grilles</h1>
-        <div className="topbar-actions">
-          <button
-            className="icon-btn"
-            onClick={() => onThemePreferenceChange(NEXT_THEME[themePreference])}
-            aria-label={`Thème : ${THEME_LABEL[themePreference]}`}
-          >
-            {THEME_ICON[themePreference]}
-          </button>
-          {grids.length > 0 && (
-            <button
-              className="icon-btn"
-              onClick={() => setSearchOpen((v) => !v)}
-              aria-label="Rechercher"
-              title="Rechercher"
-            >
-              🔍
-            </button>
-          )}
-          <button
-            className="icon-btn"
-            onClick={() => setSyncOpen(true)}
-            aria-label="Synchroniser mes grilles"
-            title="Synchroniser mes grilles"
-          >
-            🔄
-          </button>
-          <button className="btn btn-chrome" onClick={() => navigate("editor")}>
-            + Nouvelle grille
-          </button>
-        </div>
-      </header>
-
-      {(archivedCount > 0 || archiveView === "archived") && (
-        <div className="archive-toggle" role="tablist" aria-label="Filtrer par statut">
-          <button
-            role="tab"
-            aria-selected={archiveView === "active"}
-            className={`archive-toggle-btn${archiveView === "active" ? " active" : ""}`}
-            onClick={() => setArchiveView("active")}
-          >
-            Actives
-          </button>
-          <button
-            role="tab"
-            aria-selected={archiveView === "archived"}
-            className={`archive-toggle-btn${archiveView === "archived" ? " active" : ""}`}
-            onClick={() => setArchiveView("archived")}
-          >
-            Archivées{archivedCount > 0 ? ` (${archivedCount})` : ""}
-          </button>
-        </div>
+      {focusMode && (
+        <button
+          className="focus-exit-btn"
+          onClick={() => setFocusMode(false)}
+          aria-label="Quitter le mode plein écran"
+        >
+          ✕
+        </button>
       )}
 
-      {searchOpen && grids.length > 0 && (
-        <div className="search-bar">
-          <input
-            autoFocus
-            type="text"
-            placeholder="Rechercher une grille…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") closeSearch();
-            }}
-          />
-          <button className="modal-close" onClick={closeSearch} aria-label="Fermer la recherche">
-            ✕
-          </button>
-        </div>
+      {!focusMode && (
+        <>
+          <header className="topbar">
+            <h1>🎉 Bingo</h1>
+            <div className="topbar-actions">
+              <button
+                className="icon-btn"
+                onClick={() => onThemePreferenceChange(NEXT_THEME[themePreference])}
+                aria-label={`Thème : ${THEME_LABEL[themePreference]}`}
+              >
+                {THEME_ICON[themePreference]}
+              </button>
+              {grids.length > 0 && (
+                <button
+                  className="icon-btn"
+                  onClick={() => setSearchOpen((v) => !v)}
+                  aria-label="Rechercher"
+                  title="Rechercher"
+                >
+                  🔍
+                </button>
+              )}
+              <button
+                className="icon-btn"
+                onClick={() => setSyncOpen(true)}
+                aria-label="Synchroniser mes grilles"
+                title="Synchroniser mes grilles"
+              >
+                ⇄
+              </button>
+              {grids.length > 0 && (
+                <button
+                  className="icon-btn"
+                  onClick={() => setFocusMode(true)}
+                  aria-label="Mode plein écran"
+                  title="Mode plein écran"
+                >
+                  ⛶
+                </button>
+              )}
+              <button className="btn btn-chrome" onClick={() => navigate("editor")}>
+                + Nouvelle grille
+              </button>
+            </div>
+          </header>
+
+          {(archivedCount > 0 || archiveView === "archived") && (
+            <div className="archive-toggle" role="tablist" aria-label="Filtrer par statut">
+              <button
+                role="tab"
+                aria-selected={archiveView === "active"}
+                className={`archive-toggle-btn${archiveView === "active" ? " active" : ""}`}
+                onClick={() => setArchiveView("active")}
+              >
+                Actives
+              </button>
+              <button
+                role="tab"
+                aria-selected={archiveView === "archived"}
+                className={`archive-toggle-btn${archiveView === "archived" ? " active" : ""}`}
+                onClick={() => setArchiveView("archived")}
+              >
+                Archivées{archivedCount > 0 ? ` (${archivedCount})` : ""}
+              </button>
+            </div>
+          )}
+
+          {searchOpen && grids.length > 0 && (
+            <div className="search-bar">
+              <input
+                autoFocus
+                type="text"
+                placeholder="Rechercher une grille…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") closeSearch();
+                }}
+              />
+              <button className="modal-close" onClick={closeSearch} aria-label="Fermer la recherche">
+                ✕
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {filteredGrids.length === 0 ? (
