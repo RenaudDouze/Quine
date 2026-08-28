@@ -91,6 +91,7 @@ test('exports the current grid as an SVG image', async ({ page }) => {
     items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
   })
 
+  await page.getByRole('button', { name: 'Partager' }).click()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Exporter en image' }).click()
   const download = await downloadPromise
@@ -110,6 +111,7 @@ test('calls window.print when Imprimer is clicked', async ({ page }) => {
       ;(window as unknown as { __printed: boolean }).__printed = true
     }
   })
+  await page.getByRole('button', { name: 'Partager' }).click()
   await page.getByRole('button', { name: 'Imprimer' }).click()
   const printed = await page.evaluate(() => (window as unknown as { __printed: boolean }).__printed)
   expect(printed).toBe(true)

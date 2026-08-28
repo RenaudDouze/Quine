@@ -65,7 +65,7 @@ export default function App() {
   /* oxlint-enable react/set-state-in-effect */
 
   if (route.name === "editor") {
-    return <EditorView key={route.id} id={route.id} />;
+    return <EditorView />;
   }
   return (
     <HomeView

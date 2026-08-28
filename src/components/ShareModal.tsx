@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import type { Grid } from "../lib/bingo";
+import { downloadGridSvg } from "../lib/gridImage";
+import { printGrid } from "../lib/print";
 import { buildShareUrl, downloadBackup, parseBackupJson } from "../lib/share";
 
 interface Props {
@@ -107,6 +109,19 @@ export default function ShareModal({
             </button>
           )}
         </section>
+
+        {grids.length === 1 && (
+          <section className="modal-section">
+            <div className="modal-row">
+              <button className="modal-btn" onClick={() => downloadGridSvg(grids[0])}>
+                🖼️ Exporter en image
+              </button>
+              <button className="modal-btn" onClick={() => printGrid(grids[0].id)}>
+                🖨️ Imprimer
+              </button>
+            </div>
+          </section>
+        )}
 
         {showJsonBackup && (
           <section className="modal-section">

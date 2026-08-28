@@ -105,12 +105,29 @@ describe("HomeView", () => {
     expect(grids.find((g) => g.id === "g2")!.cells.some((c) => c.marked)).toBe(false);
   });
 
-  it("navigates to the editor with the grid id when editing", async () => {
+  it("opens the edit modal, pre-filled, when editing, and closes it without saving", async () => {
     const user = userEvent.setup();
-    saveGrids([makeGrid({ id: "g1" })]);
+    saveGrids([makeGrid({ id: "g1", title: "Ma grille" })]);
     renderHome();
     await user.click(screen.getByRole("button", { name: "Modifier" }));
-    expect(window.location.hash).toBe("#editor/g1");
+    expect(window.location.hash).toBe("");
+    expect(screen.getByText('Modifier « Ma grille »')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/bingo réunion/i)).toHaveValue("Ma grille");
+    await user.click(screen.getByRole("button", { name: "Fermer" }));
+    expect(screen.queryByText('Modifier « Ma grille »')).not.toBeInTheDocument();
+  });
+
+  it("saves the edited grid and closes the modal", async () => {
+    const user = userEvent.setup();
+    saveGrids([makeGrid({ id: "g1", title: "Ma grille" })]);
+    renderHome();
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    const titleInput = screen.getByPlaceholderText(/bingo réunion/i);
+    await user.clear(titleInput);
+    await user.type(titleInput, "Titre modifié");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    expect(screen.queryByText('Modifier « Titre modifié »')).not.toBeInTheDocument();
+    expect(loadGrids().find((g) => g.id === "g1")!.title).toBe("Titre modifié");
   });
 
   it.each([

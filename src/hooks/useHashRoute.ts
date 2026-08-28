@@ -2,14 +2,11 @@ import { useEffect, useState } from "react";
 
 export interface Route {
   name: string;
-  id?: string;
 }
 
 function parseHash(): Route {
-  const h = window.location.hash.slice(1);
-  if (!h) return { name: "home" };
-  const [name, id] = h.split("/");
-  return { name: name || "home", id };
+  const name = window.location.hash.slice(1);
+  return { name: name || "home" };
 }
 
 export function useHashRoute(): Route {
@@ -24,6 +21,6 @@ export function useHashRoute(): Route {
   return route;
 }
 
-export function navigate(name: string, id?: string): void {
-  window.location.hash = id ? `${name}/${id}` : name;
+export function navigate(name: string): void {
+  window.location.hash = name;
 }

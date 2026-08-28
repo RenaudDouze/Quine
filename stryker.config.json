@@ -17,7 +17,8 @@
     "src/lib/colors.ts",
     "src/lib/url.ts",
     "src/lib/download.ts",
-    "src/lib/gridImage.ts"
+    "src/lib/gridImage.ts",
+    "src/lib/print.ts"
   ],
   "thresholds": {
     "high": 100,

@@ -4,12 +4,7 @@ import { navigate, useHashRoute } from "./useHashRoute";
 
 function Probe() {
   const route = useHashRoute();
-  return (
-    <span data-testid="route">
-      {route.name}
-      {route.id ? `/${route.id}` : ""}
-    </span>
-  );
+  return <span data-testid="route">{route.name}</span>;
 }
 
 beforeEach(() => {
@@ -22,33 +17,18 @@ describe("useHashRoute", () => {
     expect(screen.getByTestId("route")).toHaveTextContent("home");
   });
 
-  it("falls back to home when the route name segment is empty", async () => {
+  it("parses a route name from the hash", async () => {
     render(<Probe />);
     act(() => {
-      window.location.hash = "/some-id";
+      window.location.hash = "editor";
     });
-    await waitFor(() => expect(screen.getByTestId("route")).toHaveTextContent("home"));
-  });
-
-  it("parses a route name and id from the hash", async () => {
-    render(<Probe />);
-    act(() => {
-      window.location.hash = "play/abc123";
-    });
-    await waitFor(() =>
-      expect(screen.getByTestId("route")).toHaveTextContent("play/abc123")
-    );
+    await waitFor(() => expect(screen.getByTestId("route")).toHaveTextContent("editor"));
   });
 });
 
 describe("navigate", () => {
-  it("sets the hash to just the route name when no id is given", () => {
+  it("sets the hash to the route name", () => {
     navigate("editor");
     expect(window.location.hash).toBe("#editor");
-  });
-
-  it("sets the hash to name/id when an id is given", () => {
-    navigate("play", "xyz");
-    expect(window.location.hash).toBe("#play/xyz");
   });
 });
