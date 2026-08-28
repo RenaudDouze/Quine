@@ -21,7 +21,6 @@ export default function EditModal({ grid, onClose, onSave }: Props) {
   function handleSubmit(values: GridFormValues) {
     onSave({
       ...grid,
-      title: values.title,
       size: values.size,
       freeCenter: values.freeCenter,
       items: values.items,
@@ -44,7 +43,6 @@ export default function EditModal({ grid, onClose, onSave }: Props) {
 
         <GridForm
           initial={{
-            title: grid.title,
             size: grid.size,
             freeCenter: grid.freeCenter,
             winRule: grid.winRule ?? "line",

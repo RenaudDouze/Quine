@@ -21,6 +21,7 @@ function makeGrid(overrides: Partial<Grid> = {}): Grid {
 function renderModal(gridOverrides: Partial<Grid> = {}) {
   const grid = makeGrid(gridOverrides);
   const onClose = vi.fn();
+  const onSetTitle = vi.fn();
   const onSetColor = vi.fn();
   const onSetBackgroundImage = vi.fn();
   const onTogglePin = vi.fn();
@@ -31,6 +32,7 @@ function renderModal(gridOverrides: Partial<Grid> = {}) {
     <CustomizeModal
       grid={grid}
       onClose={onClose}
+      onSetTitle={onSetTitle}
       onSetColor={onSetColor}
       onSetBackgroundImage={onSetBackgroundImage}
       onTogglePin={onTogglePin}
@@ -42,6 +44,7 @@ function renderModal(gridOverrides: Partial<Grid> = {}) {
   return {
     grid,
     onClose,
+    onSetTitle,
     onSetColor,
     onSetBackgroundImage,
     onTogglePin,
@@ -100,6 +103,51 @@ describe("CustomizeModal", () => {
   it("shows a locked hint for an archived grid", () => {
     renderModal({ archived: true });
     expect(screen.getByText(/grille archivée/i)).toBeInTheDocument();
+  });
+
+  describe("nom", () => {
+    it("affiche le titre actuel dans le champ", () => {
+      renderModal({ title: "Mon titre" });
+      expect(screen.getByDisplayValue("Mon titre")).toBeInTheDocument();
+    });
+
+    it("renomme au blur", () => {
+      const { onSetTitle } = renderModal({ title: "Ancien" });
+      const input = screen.getByDisplayValue("Ancien");
+      fireEvent.change(input, { target: { value: "Nouveau" } });
+      fireEvent.blur(input);
+      expect(onSetTitle).toHaveBeenCalledWith("Nouveau");
+    });
+
+    it("renomme sur Entrée", () => {
+      const { onSetTitle } = renderModal({ title: "Ancien" });
+      const input = screen.getByDisplayValue("Ancien");
+      fireEvent.change(input, { target: { value: "Nouveau" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(onSetTitle).toHaveBeenCalledWith("Nouveau");
+    });
+
+    it("ignore une autre touche que Entrée", () => {
+      const { onSetTitle } = renderModal({ title: "Ancien" });
+      const input = screen.getByDisplayValue("Ancien");
+      fireEvent.change(input, { target: { value: "Nouveau" } });
+      fireEvent.keyDown(input, { key: "a" });
+      expect(onSetTitle).not.toHaveBeenCalled();
+    });
+
+    it('remplace un titre vide (ou uniquement des espaces) par "Grille de bingo"', () => {
+      const { onSetTitle } = renderModal({ title: "Ancien" });
+      const input = screen.getByDisplayValue("Ancien");
+      fireEvent.change(input, { target: { value: "   " } });
+      fireEvent.blur(input);
+      expect(onSetTitle).toHaveBeenCalledWith("Grille de bingo");
+      expect(screen.getByDisplayValue("Grille de bingo")).toBeInTheDocument();
+    });
+
+    it("désactive le champ nom quand la grille est archivée", () => {
+      renderModal({ archived: true, title: "Figée" });
+      expect(screen.getByDisplayValue("Figée")).toBeDisabled();
+    });
   });
 
   it("calls onSetColor when a swatch is clicked", async () => {

@@ -20,7 +20,6 @@ export async function createGrid(
   const { title, size = 3, items, freeCenter = false, winRule } = options
 
   await page.getByRole('button', { name: '+ Nouvelle grille' }).click()
-  await page.getByPlaceholder(/bingo réunion/i).fill(title)
   await page.getByRole('combobox', { name: /taille de la grille/i }).selectOption(String(size))
   if (freeCenter) {
     await page.getByLabel(/case centrale libre/i).check()
@@ -33,4 +32,14 @@ export async function createGrid(
   // Comme +1, il n'y a plus d'écran dédié à une grille précise : la créer
   // ramène à l'accueil, où son plateau s'affiche déjà en entier.
   await page.waitForURL(/#home/)
+
+  // Comme +1, une grille naît avec un nom par défaut ; on la renomme ici
+  // via la modale Personnaliser pour que les tests puissent la cibler par
+  // titre ensuite.
+  const card = page.locator('.grid-item').last()
+  await card.getByRole('button', { name: 'Personnaliser', exact: true }).click()
+  const nameInput = page.getByRole('textbox', { name: 'Nom de la grille' })
+  await nameInput.fill(title)
+  await nameInput.blur()
+  await page.getByRole('button', { name: 'Fermer' }).click()
 }

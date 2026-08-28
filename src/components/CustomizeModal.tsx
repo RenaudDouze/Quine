@@ -6,6 +6,7 @@ import { isValidImageUrl } from "../lib/url";
 interface Props {
   grid: Grid;
   onClose: () => void;
+  onSetTitle: (title: string) => void;
   onSetColor: (color: string) => void;
   onSetBackgroundImage: (url: string | undefined) => void;
   onTogglePin: () => void;
@@ -17,6 +18,7 @@ interface Props {
 export default function CustomizeModal({
   grid,
   onClose,
+  onSetTitle,
   onSetColor,
   onSetBackgroundImage,
   onTogglePin,
@@ -24,9 +26,16 @@ export default function CustomizeModal({
   onDuplicate,
   onDelete,
 }: Props) {
+  const [draftTitle, setDraftTitle] = useState(grid.title);
   const [draftBackground, setDraftBackground] = useState(grid.backgroundImageUrl ?? "");
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const locked = !!grid.archived;
+
+  function commitTitle() {
+    const trimmed = draftTitle.trim() || "Grille de bingo";
+    setDraftTitle(trimmed);
+    onSetTitle(trimmed);
+  }
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -90,6 +99,23 @@ export default function CustomizeModal({
             🔒 Grille archivée : désarchive-la pour changer sa couleur ou son image de fond.
           </p>
         )}
+
+        <section className="modal-section">
+          <h3>Nom</h3>
+          <input
+            type="text"
+            className="modal-input"
+            disabled={locked}
+            value={draftTitle}
+            maxLength={60}
+            aria-label="Nom de la grille"
+            onChange={(e) => setDraftTitle(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitTitle();
+            }}
+          />
+        </section>
 
         <section className="modal-section">
           <h3>Couleur</h3>

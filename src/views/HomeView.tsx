@@ -165,6 +165,10 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     persist(grids.map((g) => (g.id === next.id ? { ...next, updatedAt: now() } : g)));
   }
 
+  function setTitle(id: string, title: string) {
+    persist(grids.map((g) => (g.id === id ? { ...g, title } : g)));
+  }
+
   function setColor(id: string, color: string) {
     persist(grids.map((g) => (g.id === id ? { ...g, color } : g)));
   }
@@ -341,6 +345,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
         <CustomizeModal
           grid={customizeTarget}
           onClose={() => setCustomizeTarget(null)}
+          onSetTitle={(title) => setTitle(customizeTarget.id, title)}
           onSetColor={(color) => setColor(customizeTarget.id, color)}
           onSetBackgroundImage={(url) => setBackgroundImage(customizeTarget.id, url)}
           onTogglePin={() => togglePin(customizeTarget.id)}

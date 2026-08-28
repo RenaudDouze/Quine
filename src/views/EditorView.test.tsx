@@ -22,10 +22,9 @@ describe("EditorView", () => {
     expect(window.location.hash).toBe("#home");
   });
 
-  async function generateGrid(title: string) {
+  async function generateGrid() {
     const user = userEvent.setup();
     render(<EditorView />);
-    await user.type(screen.getByPlaceholderText(/bingo réunion/i), title);
     await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "3");
     await user.type(
       screen.getByPlaceholderText(/écrivez chaque phrase/i),
@@ -35,16 +34,24 @@ describe("EditorView", () => {
   }
 
   it("creates and persists the grid, then navigates home", async () => {
-    await generateGrid("Ma grille");
+    await generateGrid();
     expect(window.location.hash).toBe("#home");
     const grids = loadGrids();
     expect(grids).toHaveLength(1);
-    expect(grids[0].title).toBe("Ma grille");
     expect(grids[0].cells).toHaveLength(9);
   });
 
+  it("assigns a default title based on the number of existing grids, like +1's counters", async () => {
+    saveGrids([
+      { id: "a", title: "A", size: 3, freeCenter: false, items: [], cells: [], createdAt: 1, updatedAt: 1 },
+    ]);
+    await generateGrid();
+    const created = loadGrids().find((g) => g.id !== "a");
+    expect(created?.title).toBe("Grille 2");
+  });
+
   it("assigns the first palette color to the first grid created", async () => {
-    await generateGrid("Première");
+    await generateGrid();
     expect(loadGrids()[0].color).toBe(COLORS[0]);
   });
 
@@ -53,13 +60,13 @@ describe("EditorView", () => {
       { id: "a", title: "A", size: 3, freeCenter: false, items: [], cells: [], createdAt: 1, updatedAt: 1 },
       { id: "b", title: "B", size: 3, freeCenter: false, items: [], cells: [], createdAt: 1, updatedAt: 1 },
     ]);
-    await generateGrid("Troisième");
-    const created = loadGrids().find((g) => g.title === "Troisième");
+    await generateGrid();
+    const created = loadGrids().find((g) => g.title === "Grille 3");
     expect(created?.color).toBe(COLORS[2]);
   });
 
   it('defaults the win rule to "line"', async () => {
-    await generateGrid("Défaut");
+    await generateGrid();
     expect(loadGrids()[0].winRule).toBe("line");
   });
 });
