@@ -44,7 +44,6 @@ describe("App", () => {
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: /créer ma première grille/i }));
-    await user.type(screen.getByPlaceholderText(/bingo réunion/i), "Test");
     await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "3");
     await user.type(
       screen.getByPlaceholderText(/écrivez chaque phrase/i),

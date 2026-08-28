@@ -38,8 +38,7 @@ describe("EditModal", () => {
   });
 
   it("pre-fills the form from the grid", () => {
-    renderModal({ title: "Ancien titre" });
-    expect(screen.getByPlaceholderText(/bingo réunion/i)).toHaveValue("Ancien titre");
+    renderModal();
     expect(screen.getByPlaceholderText(/écrivez chaque phrase/i)).toHaveValue(
       "A\nB\nC\nD\nE\nF\nG\nH\nI"
     );
@@ -85,12 +84,10 @@ describe("EditModal", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("saves the updated grid, preserving id/createdAt/color, and closes", async () => {
+  it("saves the updated grid, preserving id/createdAt/color/title, and closes", async () => {
     const user = userEvent.setup();
     const { grid, onClose, onSave } = renderModal();
-    const titleInput = screen.getByPlaceholderText(/bingo réunion/i);
-    await user.clear(titleInput);
-    await user.type(titleInput, "Nouveau titre");
+    await user.selectOptions(screen.getByRole("combobox", { name: /condition de victoire/i }), "corners");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     expect(onSave).toHaveBeenCalledTimes(1);
@@ -98,7 +95,8 @@ describe("EditModal", () => {
     expect(saved.id).toBe(grid.id);
     expect(saved.createdAt).toBe(grid.createdAt);
     expect(saved.color).toBe(grid.color);
-    expect(saved.title).toBe("Nouveau titre");
+    expect(saved.title).toBe(grid.title);
+    expect(saved.winRule).toBe("corners");
     expect(saved.updatedAt).not.toBe(grid.updatedAt);
     expect(onClose).toHaveBeenCalledTimes(1);
   });

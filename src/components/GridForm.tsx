@@ -2,7 +2,6 @@ import { type FormEvent, useState } from "react";
 import { isOddSize, neededCount, WIN_RULES, type WinRule } from "../lib/bingo";
 
 export interface GridFormValues {
-  title: string;
   size: number;
   freeCenter: boolean;
   winRule: WinRule;
@@ -18,9 +17,9 @@ interface Props {
 /** Champs communs de création/édition d'une grille — partagés entre
  * EditorView (page, création) et EditModal (modale, édition d'une grille
  * existante), qui ne diffèrent que par leur emballage et ce qu'ils font du
- * résultat. */
+ * résultat. Le titre ne fait pas partie de ce formulaire : comme dans +1, il
+ * se gère depuis la modale Personnaliser (voir CustomizeModal). */
 export default function GridForm({ initial, submitLabel, onSubmit }: Props) {
-  const [title, setTitle] = useState(initial?.title ?? "");
   const [size, setSize] = useState(initial?.size ?? 5);
   const [freeCenter, setFreeCenter] = useState(initial?.freeCenter ?? false);
   const [winRule, setWinRule] = useState<WinRule>(initial?.winRule ?? "line");
@@ -44,7 +43,6 @@ export default function GridForm({ initial, submitLabel, onSubmit }: Props) {
       return;
     }
     onSubmit({
-      title: title.trim() || "Grille de bingo",
       size,
       freeCenter: freeCenter && canFree,
       winRule,
@@ -54,18 +52,6 @@ export default function GridForm({ initial, submitLabel, onSubmit }: Props) {
 
   return (
     <form className="editor" onSubmit={handleSubmit}>
-      <label className="field">
-        <span>Titre de la grille</span>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Ex : Bingo réunion d'équipe"
-          required
-          maxLength={60}
-        />
-      </label>
-
       <label className="field">
         <span>Taille de la grille</span>
         <select value={size} onChange={(e) => handleSizeChange(Number(e.target.value))}>

@@ -11,7 +11,9 @@ export default function EditorView() {
     const timestamp = now();
     const grid: Grid = {
       id: uid(),
-      title: values.title,
+      // Comme dans +1, une grille naît avec un nom par défaut ; le
+      // renommage se fait ensuite depuis la modale Personnaliser.
+      title: `Grille ${grids.length + 1}`,
       size: values.size,
       freeCenter: values.freeCenter,
       items: values.items,

@@ -112,7 +112,7 @@ describe("HomeView", () => {
     await user.click(screen.getByRole("button", { name: "Modifier" }));
     expect(window.location.hash).toBe("");
     expect(screen.getByText('Modifier « Ma grille »')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/bingo réunion/i)).toHaveValue("Ma grille");
+    expect(screen.getByPlaceholderText(/écrivez chaque phrase/i)).toHaveValue("A\nB\nC\nD\nE\nF\nG\nH\nI");
     await user.click(screen.getByRole("button", { name: "Fermer" }));
     expect(screen.queryByText('Modifier « Ma grille »')).not.toBeInTheDocument();
   });
@@ -122,12 +122,12 @@ describe("HomeView", () => {
     saveGrids([makeGrid({ id: "g1", title: "Ma grille" })]);
     renderHome();
     await user.click(screen.getByRole("button", { name: "Modifier" }));
-    const titleInput = screen.getByPlaceholderText(/bingo réunion/i);
-    await user.clear(titleInput);
-    await user.type(titleInput, "Titre modifié");
+    await user.selectOptions(screen.getByRole("combobox", { name: /condition de victoire/i }), "corners");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
-    expect(screen.queryByText('Modifier « Titre modifié »')).not.toBeInTheDocument();
-    expect(loadGrids().find((g) => g.id === "g1")!.title).toBe("Titre modifié");
+    expect(screen.queryByText('Modifier « Ma grille »')).not.toBeInTheDocument();
+    const saved = loadGrids().find((g) => g.id === "g1")!;
+    expect(saved.title).toBe("Ma grille");
+    expect(saved.winRule).toBe("corners");
   });
 
   it.each([
@@ -207,6 +207,25 @@ describe("HomeView", () => {
       expect(screen.getByText('Personnaliser « Ma grille »')).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Fermer" }));
       expect(screen.queryByText('Personnaliser « Ma grille »')).not.toBeInTheDocument();
+    });
+
+    it("renames the targeted grid only via the Nom field, leaving other grids untouched", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "g1", title: "Ma grille" }),
+        makeGrid({ id: "g2", title: "Autre grille" }),
+      ]);
+      renderHome();
+      await openCustomize(user, "Ma grille");
+      const nameInput = screen.getByRole("textbox", { name: "Nom de la grille" });
+      await user.clear(nameInput);
+      await user.type(nameInput, "Nouveau nom");
+      await user.tab();
+
+      const grids = loadGrids();
+      expect(grids.find((g) => g.id === "g1")?.title).toBe("Nouveau nom");
+      expect(grids.find((g) => g.id === "g2")?.title).toBe("Autre grille");
+      expect(screen.getByText('Personnaliser « Ma grille »')).toBeInTheDocument();
     });
 
     it("persists the chosen color on the targeted grid only, leaving other grids untouched", async () => {
