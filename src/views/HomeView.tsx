@@ -1,14 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Reorder } from "framer-motion";
 import type { ThemePreference } from "../App";
 import CustomizeModal from "../components/CustomizeModal";
 import EditModal from "../components/EditModal";
 import GridCard from "../components/GridCard";
-import ShareModal from "../components/ShareModal";
 import { buildCells, matchesSearch, sortByPinned, type Grid } from "../lib/bingo";
 import { loadGrids, saveGrids, uid } from "../lib/storage";
 import { now } from "../lib/time";
 import { navigate } from "../hooks/useHashRoute";
+
+// Chargé à la demande : n'entre dans le bundle initial que si une modale de
+// partage/synchronisation est effectivement ouverte (embarque la dépendance
+// qrcode), comme SyncPanel dans +1.
+const ShareModal = lazy(() => import("../components/ShareModal"));
 
 const THEME_ICON: Record<ThemePreference, string> = { system: "🌓", light: "☀️", dark: "🌙" };
 const THEME_LABEL: Record<ThemePreference, string> = { system: "Auto", light: "Clair", dark: "Sombre" };
@@ -121,11 +125,17 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     setSearchQuery("");
   }
 
-  const archivedCount = grids.filter((g) => g.archived).length;
-  const filteredGrids = grids.filter(
-    (g) => (archiveView === "archived" ? !!g.archived : !g.archived) && matchesSearch(g, searchQuery)
+  // Mémoïsés : recalculés à chaque rendu sinon, y compris pour des
+  // changements sans rapport (ex : bascule de thème), comme dans +1.
+  const archivedCount = useMemo(() => grids.filter((g) => g.archived).length, [grids]);
+  const filteredGrids = useMemo(
+    () =>
+      grids.filter(
+        (g) => (archiveView === "archived" ? !!g.archived : !g.archived) && matchesSearch(g, searchQuery)
+      ),
+    [grids, archiveView, searchQuery]
   );
-  const sortedGrids = sortByPinned(filteredGrids);
+  const sortedGrids = useMemo(() => sortByPinned(filteredGrids), [filteredGrids]);
   // Le glisser-déposer réordonne `sortedGrids` (le sous-ensemble affiché) et
   // enregistre directement ce résultat comme nouvelle liste complète : ça ne
   // reste cohérent que si ce sous-ensemble couvre déjà tout le reste (pas de
@@ -165,8 +175,12 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     persist(grids.map((g) => (g.id === next.id ? { ...next, updatedAt: now() } : g)));
   }
 
-  function setTitle(id: string, title: string) {
-    persist(grids.map((g) => (g.id === id ? { ...g, title } : g)));
+  // Applique un patch de champs à une seule grille, identifiée par son id.
+  // Point d'entrée commun à tous les réglages simples (titre, couleur, image
+  // de fond...) qui remplacent juste un ou plusieurs champs sans logique
+  // additionnelle, comme updateCounter dans +1.
+  function patchGrid(id: string, patch: Partial<Grid>) {
+    persist(grids.map((g) => (g.id === id ? { ...g, ...patch } : g)));
   }
 
   function shuffleGrid(id: string) {
@@ -183,14 +197,6 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
         g.id === id ? { ...g, cells: g.cells.map((c) => (c.free ? c : { ...c, marked: false })) } : g
       )
     );
-  }
-
-  function setColor(id: string, color: string) {
-    persist(grids.map((g) => (g.id === id ? { ...g, color } : g)));
-  }
-
-  function setBackgroundImage(id: string, url: string | undefined) {
-    persist(grids.map((g) => (g.id === id ? { ...g, backgroundImageUrl: url } : g)));
   }
 
   function togglePin(id: string) {
@@ -334,36 +340,38 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
       )}
 
       {syncOpen && (
-        <ShareModal
-          grids={grids}
-          heading="Synchroniser mes grilles"
-          hint="Scanne ce QR code depuis l'autre appareil, ou copie le lien."
-          emptyHint="Ajoute au moins une grille pour générer un QR code."
-          qrAlt="QR code de mes grilles"
-          showJsonBackup
-          onImport={handleImport}
-          onClose={() => setSyncOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <ShareModal
+            grids={grids}
+            heading="Synchroniser mes grilles"
+            hint="Scanne ce QR code depuis l'autre appareil, ou copie le lien."
+            emptyHint="Ajoute au moins une grille pour générer un QR code."
+            qrAlt="QR code de mes grilles"
+            showJsonBackup
+            onImport={handleImport}
+            onClose={() => setSyncOpen(false)}
+          />
+        </Suspense>
       )}
 
       {shareTarget && (
-        <ShareModal
-          grids={[shareTarget]}
-          heading={`Partager "${shareTarget.title}"`}
-          hint="Scanne ce QR code, ou copie le lien pour que quelqu'un d'autre récupère cette grille."
-          emptyHint="Impossible de générer un QR code."
-          qrAlt={`QR code de la grille ${shareTarget.title}`}
-          onClose={() => setShareTarget(null)}
-        />
+        <Suspense fallback={null}>
+          <ShareModal
+            grids={[shareTarget]}
+            heading={`Partager "${shareTarget.title}"`}
+            hint="Scanne ce QR code, ou copie le lien pour que quelqu'un d'autre récupère cette grille."
+            emptyHint="Impossible de générer un QR code."
+            qrAlt={`QR code de la grille ${shareTarget.title}`}
+            onClose={() => setShareTarget(null)}
+          />
+        </Suspense>
       )}
 
       {customizeTarget && (
         <CustomizeModal
           grid={customizeTarget}
           onClose={() => setCustomizeTarget(null)}
-          onSetTitle={(title) => setTitle(customizeTarget.id, title)}
-          onSetColor={(color) => setColor(customizeTarget.id, color)}
-          onSetBackgroundImage={(url) => setBackgroundImage(customizeTarget.id, url)}
+          onUpdate={(patch) => patchGrid(customizeTarget.id, patch)}
           onShuffle={() => shuffleGrid(customizeTarget.id)}
           onReset={() => resetGrid(customizeTarget.id)}
           onTogglePin={() => togglePin(customizeTarget.id)}
