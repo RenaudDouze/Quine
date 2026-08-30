@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createGrid, gotoFresh } from './helpers'
+import { createGrid, gotoFresh, openMenu } from './helpers'
 
 test.beforeEach(async ({ page }) => {
   await gotoFresh(page)
@@ -66,6 +66,7 @@ test('backs up all grids via the sync modal and a fresh session can import them'
   })
   await page.goto('/')
 
+  await openMenu(page)
   await page.getByRole('button', { name: 'Synchroniser mes grilles' }).click()
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await page.getByText('Copier le lien').click()
@@ -90,6 +91,7 @@ test('exports and re-imports a JSON backup, preserving marked cells', async ({ p
   await page.locator('.cell').first().click()
   await page.goto('/')
 
+  await openMenu(page)
   await page.getByRole('button', { name: 'Synchroniser mes grilles' }).click()
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Exporter', exact: true }).click()
@@ -103,6 +105,7 @@ test('exports and re-imports a JSON backup, preserving marked cells', async ({ p
   await page.reload()
   await expect(page.getByText(/aucune grille pour le moment/i)).toBeVisible()
 
+  await openMenu(page)
   await page.getByRole('button', { name: 'Synchroniser mes grilles' }).click()
   const fileChooserPromise = page.waitForEvent('filechooser')
   await page.getByRole('button', { name: 'Importer' }).click()

@@ -18,6 +18,10 @@ const THEME_ICON: Record<ThemePreference, string> = { system: "🌓", light: "�
 const THEME_LABEL: Record<ThemePreference, string> = { system: "Auto", light: "Clair", dark: "Sombre" };
 const NEXT_THEME: Record<ThemePreference, ThemePreference> = { system: "light", light: "dark", dark: "system" };
 
+type ArchiveView = "active" | "archived";
+const ARCHIVE_VIEW_ICON: Record<ArchiveView, string> = { active: "📂", archived: "📦" };
+const NEXT_ARCHIVE_VIEW: Record<ArchiveView, ArchiveView> = { active: "archived", archived: "active" };
+
 const UNDO_TIMEOUT_MS = 5000;
 
 interface Props {
@@ -36,7 +40,14 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   const [searchQuery, setSearchQuery] = useState("");
   // Bascule l'ensemble de la liste (archivées masquées par défaut) ; la
   // recherche filtre ensuite par titre à l'intérieur de la vue active.
-  const [archiveView, setArchiveView] = useState<"active" | "archived">("active");
+  const [archiveView, setArchiveView] = useState<ArchiveView>("active");
+
+  // Recherche, thème, synchronisation, plein écran et filtre archivées
+  // vivent dans ce menu déroulant, replié par défaut derrière le bouton ⋯,
+  // comme dans +1. Contrairement à ces actions, « + Nouvelle grille » reste
+  // toujours visible dans l'en-tête : c'est l'action la plus fréquente, elle
+  // ne doit pas se cacher derrière un clic supplémentaire.
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Garde un instantané des grilles avant une suppression, pour permettre de
   // l'annuler pendant quelques secondes via le message qui apparaît en bas
@@ -207,6 +218,16 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     persist(grids.map((g) => (g.id === id ? { ...g, archived: !g.archived } : g)));
   }
 
+  // Calculés une fois pour servir à la fois d'aria-label et d'infobulle sur
+  // leur bouton respectif, comme dans +1.
+  const menuButtonLabel = menuOpen ? "Masquer le menu" : "Ouvrir le menu";
+  const archiveViewLabel =
+    archiveView === "archived"
+      ? `Vue : Archivées (${archivedCount})`
+      : archivedCount > 0
+        ? `Vue : Actives (${archivedCount} archivée(s))`
+        : "Vue : Actives";
+
   return (
     <>
       {focusMode && (
@@ -224,67 +245,85 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
           <header className="topbar">
             <h1>Bingo</h1>
             <div className="topbar-actions">
-              <button
-                className="icon-btn"
-                onClick={() => onThemePreferenceChange(NEXT_THEME[themePreference])}
-                aria-label={`Thème : ${THEME_LABEL[themePreference]}`}
-              >
-                {THEME_ICON[themePreference]}
-              </button>
-              {grids.length > 0 && (
-                <button
-                  className="icon-btn"
-                  onClick={() => setSearchOpen((v) => !v)}
-                  aria-label="Rechercher"
-                  title="Rechercher"
-                >
-                  🔍
-                </button>
-              )}
-              <button
-                className="icon-btn"
-                onClick={() => setSyncOpen(true)}
-                aria-label="Synchroniser mes grilles"
-                title="Synchroniser mes grilles"
-              >
-                ⇄
-              </button>
-              {grids.length > 0 && (
-                <button
-                  className="icon-btn"
-                  onClick={() => setFocusMode(true)}
-                  aria-label="Mode plein écran"
-                  title="Mode plein écran"
-                >
-                  ⛶
-                </button>
-              )}
               <button className="btn btn-chrome" onClick={() => navigate("editor")}>
                 + Nouvelle grille
               </button>
+              <button
+                className="icon-btn"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+                aria-label={menuButtonLabel}
+                title={menuButtonLabel}
+              >
+                ⋯
+              </button>
             </div>
-          </header>
 
-          {(archivedCount > 0 || archiveView === "archived") && (
-            <div className="archive-toggle" role="tablist" aria-label="Filtrer par statut">
-              <button
-                role="tab"
-                aria-selected={archiveView === "active"}
-                className={`archive-toggle-btn${archiveView === "active" ? " active" : ""}`}
-                onClick={() => setArchiveView("active")}
-              >
-                Actives
-              </button>
-              <button
-                role="tab"
-                aria-selected={archiveView === "archived"}
-                className={`archive-toggle-btn${archiveView === "archived" ? " active" : ""}`}
-                onClick={() => setArchiveView("archived")}
-              >
-                Archivées{archivedCount > 0 ? ` (${archivedCount})` : ""}
-              </button>
-            </div>
-          )}
+            {menuOpen && (
+              <div className="topbar-menu" role="menu">
+                {grids.length > 0 && (
+                  <button
+                    className="icon-btn"
+                    onClick={() => {
+                      setSearchOpen((v) => !v);
+                      setMenuOpen(false);
+                    }}
+                    aria-label="Rechercher"
+                    title="Rechercher"
+                  >
+                    🔍
+                  </button>
+                )}
+                <button
+                  className="icon-btn"
+                  onClick={() => {
+                    onThemePreferenceChange(NEXT_THEME[themePreference]);
+                    setMenuOpen(false);
+                  }}
+                  aria-label={`Thème : ${THEME_LABEL[themePreference]}`}
+                  title={`Thème : ${THEME_LABEL[themePreference]}`}
+                >
+                  {THEME_ICON[themePreference]}
+                </button>
+                <button
+                  className="icon-btn"
+                  onClick={() => {
+                    setSyncOpen(true);
+                    setMenuOpen(false);
+                  }}
+                  aria-label="Synchroniser mes grilles"
+                  title="Synchroniser mes grilles"
+                >
+                  ⇄
+                </button>
+                {grids.length > 0 && (
+                  <button
+                    className="icon-btn"
+                    onClick={() => {
+                      setFocusMode(true);
+                      setMenuOpen(false);
+                    }}
+                    aria-label="Mode plein écran"
+                    title="Mode plein écran"
+                  >
+                    ⛶
+                  </button>
+                )}
+                <button
+                  className="icon-btn"
+                  onClick={() => {
+                    setArchiveView(NEXT_ARCHIVE_VIEW[archiveView]);
+                    setMenuOpen(false);
+                  }}
+                  aria-label={archiveViewLabel}
+                  title={archiveViewLabel}
+                >
+                  {ARCHIVE_VIEW_ICON[archiveView]}
+                </button>
+              </div>
+            )}
+          </header>
 
           {searchOpen && grids.length > 0 && (
             <div className="search-bar">
