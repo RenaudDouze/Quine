@@ -6,9 +6,7 @@ import { isValidImageUrl } from "../lib/url";
 interface Props {
   grid: Grid;
   onClose: () => void;
-  onSetTitle: (title: string) => void;
-  onSetColor: (color: string) => void;
-  onSetBackgroundImage: (url: string | undefined) => void;
+  onUpdate: (patch: Partial<Grid>) => void;
   onShuffle: () => void;
   onReset: () => void;
   onTogglePin: () => void;
@@ -20,9 +18,7 @@ interface Props {
 export default function CustomizeModal({
   grid,
   onClose,
-  onSetTitle,
-  onSetColor,
-  onSetBackgroundImage,
+  onUpdate,
   onShuffle,
   onReset,
   onTogglePin,
@@ -38,7 +34,7 @@ export default function CustomizeModal({
   function commitTitle() {
     const trimmed = draftTitle.trim() || "Grille de bingo";
     setDraftTitle(trimmed);
-    onSetTitle(trimmed);
+    onUpdate({ title: trimmed });
   }
 
   useEffect(() => {
@@ -53,10 +49,10 @@ export default function CustomizeModal({
     const trimmed = draftBackground.trim();
     if (!trimmed) {
       setBackgroundError(null);
-      onSetBackgroundImage(undefined);
+      onUpdate({ backgroundImageUrl: undefined });
     } else if (isValidImageUrl(trimmed)) {
       setBackgroundError(null);
-      onSetBackgroundImage(trimmed);
+      onUpdate({ backgroundImageUrl: trimmed });
     } else {
       setBackgroundError("URL http(s) invalide.");
     }
@@ -65,7 +61,7 @@ export default function CustomizeModal({
   function clearBackground() {
     setDraftBackground("");
     setBackgroundError(null);
-    onSetBackgroundImage(undefined);
+    onUpdate({ backgroundImageUrl: undefined });
   }
 
   function handleShuffle() {
@@ -144,7 +140,7 @@ export default function CustomizeModal({
                 className={`color-option${c === grid.color ? " selected" : ""}`}
                 style={{ background: c }}
                 aria-label={`Choisir la couleur ${c}`}
-                onClick={() => onSetColor(c)}
+                onClick={() => onUpdate({ color: c })}
               />
             ))}
           </div>

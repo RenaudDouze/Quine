@@ -806,6 +806,15 @@ button {
   }
 }
 
+/* Garde un repère visuel statique (sans le vol des particules) plutôt que de
+   supprimer complètement le retour visuel de la célébration, comme +1. */
+@media (prefers-reduced-motion: reduce) {
+  .bingo-confetti {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* Impression d'une grille (bouton "🖨️ Imprimer" d'une carte) : comme les
    grilles s'affichent maintenant toutes ensemble sur la même page (plus
    d'écran dédié à une grille précise), n'imprimer QUE celle demandée

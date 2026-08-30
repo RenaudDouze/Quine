@@ -504,7 +504,7 @@ describe("HomeView", () => {
       saveGrids([makeGrid({ id: "g1", title: "Une grille" })]);
       renderHome();
       await user.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
-      expect(screen.getByText("Synchroniser mes grilles", { selector: "h2" })).toBeInTheDocument();
+      expect(await screen.findByText("Synchroniser mes grilles", { selector: "h2" })).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Fermer" }));
       expect(screen.queryByText("Synchroniser mes grilles", { selector: "h2" })).not.toBeInTheDocument();
     });
@@ -515,6 +515,7 @@ describe("HomeView", () => {
       fireEvent.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
       vi.spyOn(window, "confirm").mockReturnValue(true); // replace
 
+      await screen.findByRole("button", { name: "Importer" });
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = new File(
         [JSON.stringify([{ title: "Importée", size: 3, items: ["A"] }])],
@@ -536,6 +537,7 @@ describe("HomeView", () => {
       fireEvent.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
       vi.spyOn(window, "confirm").mockReturnValue(false); // merge
 
+      await screen.findByRole("button", { name: "Importer" });
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = new File(
         [JSON.stringify([{ title: "Importée", size: 3, items: ["A"] }])],
@@ -559,7 +561,7 @@ describe("HomeView", () => {
       renderHome();
       await user.click(screen.getByRole("button", { name: "Partager" }));
       expect(
-        screen.getByText('Partager "Ma grille à partager"', { selector: "h2" })
+        await screen.findByText('Partager "Ma grille à partager"', { selector: "h2" })
       ).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Fermer" }));
       expect(
@@ -572,6 +574,7 @@ describe("HomeView", () => {
       saveGrids([makeGrid({ id: "g1" })]);
       renderHome();
       await user.click(screen.getByRole("button", { name: "Partager" }));
+      await screen.findByRole("button", { name: "Fermer" });
       expect(screen.queryByText("Fichier de sauvegarde")).not.toBeInTheDocument();
     });
 
@@ -584,7 +587,7 @@ describe("HomeView", () => {
       renderHome();
       const cards = screen.getAllByRole("button", { name: "Partager" });
       await user.click(cards[0]);
-      expect(screen.getByText('Partager "Grille A"', { selector: "h2" })).toBeInTheDocument();
+      expect(await screen.findByText('Partager "Grille A"', { selector: "h2" })).toBeInTheDocument();
     });
   });
 
@@ -595,10 +598,10 @@ describe("HomeView", () => {
       expect(window.location.hash).toBe("#editor");
     });
 
-    it("opens the sync modal for ?action=sync", () => {
+    it("opens the sync modal for ?action=sync", async () => {
       window.history.pushState({}, "", "/?action=sync");
       renderHome();
-      expect(screen.getByText("Synchroniser mes grilles", { selector: "h2" })).toBeInTheDocument();
+      expect(await screen.findByText("Synchroniser mes grilles", { selector: "h2" })).toBeInTheDocument();
     });
 
     it("cleans the action param from the URL after handling it", () => {

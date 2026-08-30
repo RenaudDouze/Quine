@@ -21,9 +21,7 @@ function makeGrid(overrides: Partial<Grid> = {}): Grid {
 function renderModal(gridOverrides: Partial<Grid> = {}) {
   const grid = makeGrid(gridOverrides);
   const onClose = vi.fn();
-  const onSetTitle = vi.fn();
-  const onSetColor = vi.fn();
-  const onSetBackgroundImage = vi.fn();
+  const onUpdate = vi.fn();
   const onShuffle = vi.fn();
   const onReset = vi.fn();
   const onTogglePin = vi.fn();
@@ -34,9 +32,7 @@ function renderModal(gridOverrides: Partial<Grid> = {}) {
     <CustomizeModal
       grid={grid}
       onClose={onClose}
-      onSetTitle={onSetTitle}
-      onSetColor={onSetColor}
-      onSetBackgroundImage={onSetBackgroundImage}
+      onUpdate={onUpdate}
       onShuffle={onShuffle}
       onReset={onReset}
       onTogglePin={onTogglePin}
@@ -48,9 +44,7 @@ function renderModal(gridOverrides: Partial<Grid> = {}) {
   return {
     grid,
     onClose,
-    onSetTitle,
-    onSetColor,
-    onSetBackgroundImage,
+    onUpdate,
     onShuffle,
     onReset,
     onTogglePin,
@@ -118,35 +112,35 @@ describe("CustomizeModal", () => {
     });
 
     it("renomme au blur", () => {
-      const { onSetTitle } = renderModal({ title: "Ancien" });
+      const { onUpdate } = renderModal({ title: "Ancien" });
       const input = screen.getByDisplayValue("Ancien");
       fireEvent.change(input, { target: { value: "Nouveau" } });
       fireEvent.blur(input);
-      expect(onSetTitle).toHaveBeenCalledWith("Nouveau");
+      expect(onUpdate).toHaveBeenCalledWith({ title: "Nouveau" });
     });
 
     it("renomme sur Entrée", () => {
-      const { onSetTitle } = renderModal({ title: "Ancien" });
+      const { onUpdate } = renderModal({ title: "Ancien" });
       const input = screen.getByDisplayValue("Ancien");
       fireEvent.change(input, { target: { value: "Nouveau" } });
       fireEvent.keyDown(input, { key: "Enter" });
-      expect(onSetTitle).toHaveBeenCalledWith("Nouveau");
+      expect(onUpdate).toHaveBeenCalledWith({ title: "Nouveau" });
     });
 
     it("ignore une autre touche que Entrée", () => {
-      const { onSetTitle } = renderModal({ title: "Ancien" });
+      const { onUpdate } = renderModal({ title: "Ancien" });
       const input = screen.getByDisplayValue("Ancien");
       fireEvent.change(input, { target: { value: "Nouveau" } });
       fireEvent.keyDown(input, { key: "a" });
-      expect(onSetTitle).not.toHaveBeenCalled();
+      expect(onUpdate).not.toHaveBeenCalled();
     });
 
     it('remplace un titre vide (ou uniquement des espaces) par "Grille de bingo"', () => {
-      const { onSetTitle } = renderModal({ title: "Ancien" });
+      const { onUpdate } = renderModal({ title: "Ancien" });
       const input = screen.getByDisplayValue("Ancien");
       fireEvent.change(input, { target: { value: "   " } });
       fireEvent.blur(input);
-      expect(onSetTitle).toHaveBeenCalledWith("Grille de bingo");
+      expect(onUpdate).toHaveBeenCalledWith({ title: "Grille de bingo" });
       expect(screen.getByDisplayValue("Grille de bingo")).toBeInTheDocument();
     });
 
@@ -196,11 +190,11 @@ describe("CustomizeModal", () => {
     });
   });
 
-  it("calls onSetColor when a swatch is clicked", async () => {
+  it("calls onUpdate with the chosen color when a swatch is clicked", async () => {
     const user = userEvent.setup();
-    const { onSetColor } = renderModal();
+    const { onUpdate } = renderModal();
     await user.click(screen.getByRole("button", { name: "Choisir la couleur #2563eb" }));
-    expect(onSetColor).toHaveBeenCalledWith("#2563eb");
+    expect(onUpdate).toHaveBeenCalledWith({ color: "#2563eb" });
   });
 
   it("marks the current color swatch as selected", () => {
@@ -219,35 +213,35 @@ describe("CustomizeModal", () => {
   });
 
   it("commits a valid background URL on blur", () => {
-    const { onSetBackgroundImage } = renderModal();
+    const { onUpdate } = renderModal();
     const input = screen.getByPlaceholderText(/exemple.com/i);
     fireEvent.change(input, { target: { value: "https://example.com/img.png" } });
     fireEvent.blur(input);
-    expect(onSetBackgroundImage).toHaveBeenCalledWith("https://example.com/img.png");
+    expect(onUpdate).toHaveBeenCalledWith({ backgroundImageUrl: "https://example.com/img.png" });
   });
 
   it("commits a valid background URL on Enter", () => {
-    const { onSetBackgroundImage } = renderModal();
+    const { onUpdate } = renderModal();
     const input = screen.getByPlaceholderText(/exemple.com/i);
     fireEvent.change(input, { target: { value: "https://example.com/img.png" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(onSetBackgroundImage).toHaveBeenCalledWith("https://example.com/img.png");
+    expect(onUpdate).toHaveBeenCalledWith({ backgroundImageUrl: "https://example.com/img.png" });
   });
 
   it("does not commit on a key other than Enter", () => {
-    const { onSetBackgroundImage } = renderModal();
+    const { onUpdate } = renderModal();
     const input = screen.getByPlaceholderText(/exemple.com/i);
     fireEvent.change(input, { target: { value: "https://example.com/img.png" } });
     fireEvent.keyDown(input, { key: "Tab" });
-    expect(onSetBackgroundImage).not.toHaveBeenCalled();
+    expect(onUpdate).not.toHaveBeenCalled();
   });
 
   it("shows an error and does not commit an invalid background URL", () => {
-    const { onSetBackgroundImage } = renderModal();
+    const { onUpdate } = renderModal();
     const input = screen.getByPlaceholderText(/exemple.com/i);
     fireEvent.change(input, { target: { value: "not a url" } });
     fireEvent.blur(input);
-    expect(onSetBackgroundImage).not.toHaveBeenCalled();
+    expect(onUpdate).not.toHaveBeenCalled();
     expect(screen.getByText(/url http\(s\) invalide/i)).toBeInTheDocument();
   });
 
@@ -262,19 +256,19 @@ describe("CustomizeModal", () => {
   });
 
   it("commits an empty background URL as undefined (no error)", () => {
-    const { onSetBackgroundImage } = renderModal({ backgroundImageUrl: "https://example.com/bg.jpg" });
+    const { onUpdate } = renderModal({ backgroundImageUrl: "https://example.com/bg.jpg" });
     const input = screen.getByPlaceholderText(/exemple.com/i);
     fireEvent.change(input, { target: { value: "   " } });
     fireEvent.blur(input);
-    expect(onSetBackgroundImage).toHaveBeenCalledWith(undefined);
+    expect(onUpdate).toHaveBeenCalledWith({ backgroundImageUrl: undefined });
     expect(screen.queryByText(/url http\(s\) invalide/i)).not.toBeInTheDocument();
   });
 
   it("shows a clear button once the background field has text, and clears it", async () => {
     const user = userEvent.setup();
-    const { onSetBackgroundImage } = renderModal({ backgroundImageUrl: "https://example.com/bg.jpg" });
+    const { onUpdate } = renderModal({ backgroundImageUrl: "https://example.com/bg.jpg" });
     await user.click(screen.getByRole("button", { name: "Vider l'image de fond" }));
-    expect(onSetBackgroundImage).toHaveBeenCalledWith(undefined);
+    expect(onUpdate).toHaveBeenCalledWith({ backgroundImageUrl: undefined });
     expect(screen.getByPlaceholderText(/exemple.com/i)).toHaveValue("");
   });
 

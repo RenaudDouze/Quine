@@ -41,6 +41,56 @@ describe("useLocalStorage", () => {
     expect(result.current[0]).toBe(1);
   });
 
+  describe("synchronisation inter-onglets (événement storage)", () => {
+    it("adopte la nouvelle valeur écrite par un autre onglet sur la même clé", () => {
+      const { result } = renderHook(() => useLocalStorage("clé-test", "défaut"));
+      act(() => {
+        window.dispatchEvent(
+          new StorageEvent("storage", { key: "clé-test", newValue: JSON.stringify("depuis-un-autre-onglet") })
+        );
+      });
+      expect(result.current[0]).toBe("depuis-un-autre-onglet");
+    });
+
+    it("ignore un événement storage sur une autre clé", () => {
+      const { result } = renderHook(() => useLocalStorage("clé-test", "défaut"));
+      act(() => {
+        window.dispatchEvent(new StorageEvent("storage", { key: "autre-clé", newValue: JSON.stringify("ignoré") }));
+      });
+      expect(result.current[0]).toBe("défaut");
+    });
+
+    it("retombe sur la valeur initiale quand l'entrée est supprimée dans un autre onglet", () => {
+      const { result } = renderHook(() => useLocalStorage("clé-test", "défaut"));
+      act(() => {
+        result.current[1]("valeur-locale");
+      });
+      act(() => {
+        window.dispatchEvent(new StorageEvent("storage", { key: "clé-test", newValue: null }));
+      });
+      expect(result.current[0]).toBe("défaut");
+    });
+
+    it("ignore un événement storage au contenu JSON invalide", () => {
+      const { result } = renderHook(() => useLocalStorage("clé-test", "défaut"));
+      act(() => {
+        result.current[1]("valeur-locale");
+      });
+      act(() => {
+        window.dispatchEvent(new StorageEvent("storage", { key: "clé-test", newValue: "{invalide" }));
+      });
+      expect(result.current[0]).toBe("valeur-locale");
+    });
+
+    it("se désabonne au démontage", () => {
+      const removeSpy = vi.spyOn(window, "removeEventListener");
+      const { unmount } = renderHook(() => useLocalStorage("clé-test", "défaut"));
+      unmount();
+      expect(removeSpy).toHaveBeenCalledWith("storage", expect.any(Function));
+      removeSpy.mockRestore();
+    });
+  });
+
   describe("quand window.localStorage lève une exception", () => {
     let getItemSpy: ReturnType<typeof vi.spyOn>;
     let setItemSpy: ReturnType<typeof vi.spyOn>;
