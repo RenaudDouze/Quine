@@ -42,6 +42,14 @@ async function openCustomize(user: ReturnType<typeof userEvent.setup>, title: st
   await user.click(within(card).getByRole("button", { name: "Personnaliser" }));
 }
 
+// La recherche, le thème, la synchronisation, le plein écran et le filtre
+// archivées vivent dans le menu déroulant de l'en-tête, replié par défaut :
+// chaque test qui les exerce doit d'abord l'ouvrir, comme dans +1.
+function openMenu() {
+  const trigger = screen.queryByRole("button", { name: "Ouvrir le menu" });
+  if (trigger) fireEvent.click(trigger);
+}
+
 beforeEach(() => {
   localStorage.clear();
   window.location.hash = "";
@@ -139,6 +147,7 @@ describe("HomeView", () => {
     async (current, label, next) => {
       const user = userEvent.setup();
       const { onThemePreferenceChange } = renderHome({ themePreference: current });
+      openMenu();
       const toggle = screen.getByRole("button", { name: `Thème : ${label}` });
       await user.click(toggle);
       expect(onThemePreferenceChange).toHaveBeenCalledWith(next);
@@ -359,7 +368,7 @@ describe("HomeView", () => {
       expect(loadGrids()[0].pinned).toBe(false);
     });
 
-    it("archives a grid, moving it out of the active list into the Archivées tab", async () => {
+    it("archives a grid, moving it out of the active list into the archived view", async () => {
       const user = userEvent.setup();
       saveGrids([
         makeGrid({ id: "a", title: "Alpha" }),
@@ -371,23 +380,25 @@ describe("HomeView", () => {
 
       expect(screen.queryByText("Bravo")).not.toBeInTheDocument();
       expect(screen.getByText("Alpha")).toBeInTheDocument();
-      expect(screen.getByRole("tab", { name: /Archivées/ })).toBeInTheDocument();
 
-      await user.click(screen.getByRole("tab", { name: /Archivées/ }));
+      openMenu();
+      await user.click(screen.getByRole("button", { name: /Vue :/ }));
       expect(screen.getByText("Bravo")).toBeInTheDocument();
       expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
     });
 
-    it("unarchives a grid from the Archivées tab, moving it back to Actives", async () => {
+    it("unarchives a grid from the archived view, moving it back to the active view", async () => {
       const user = userEvent.setup();
       saveGrids([makeGrid({ id: "g1", title: "Archivée", archived: true })]);
       renderHome();
-      await user.click(screen.getByRole("tab", { name: /Archivées/ }));
+      openMenu();
+      await user.click(screen.getByRole("button", { name: /Vue :/ }));
       await openCustomize(user, "Archivée");
       await user.click(screen.getByRole("button", { name: /Désarchiver cette grille/ }));
 
       expect(screen.queryByText("Archivée")).not.toBeInTheDocument();
-      await user.click(screen.getByRole("tab", { name: "Actives" }));
+      openMenu();
+      await user.click(screen.getByRole("button", { name: /Vue :/ }));
       expect(screen.getByText("Archivée")).toBeInTheDocument();
     });
 
@@ -395,7 +406,8 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid({ id: "g1", title: "Archivée", archived: true })]);
       renderHome();
-      await user.click(screen.getByRole("tab", { name: /Archivées/ }));
+      openMenu();
+      await user.click(screen.getByRole("button", { name: /Vue :/ }));
       await openCustomize(user, "Archivée");
 
       expect(screen.getByText(/grille archivée/i)).toBeInTheDocument();
@@ -421,6 +433,7 @@ describe("HomeView", () => {
   describe("recherche", () => {
     it("does not show the search button when there are no grids", () => {
       renderHome();
+      openMenu();
       expect(screen.queryByRole("button", { name: "Rechercher" })).not.toBeInTheDocument();
     });
 
@@ -431,6 +444,7 @@ describe("HomeView", () => {
         makeGrid({ id: "b", title: "Bingo vacances" }),
       ]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Rechercher" }));
       await user.type(screen.getByPlaceholderText(/rechercher une grille/i), "vacances");
 
@@ -442,6 +456,7 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid({ title: "Bingo réunion" })]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Rechercher" }));
       await user.type(screen.getByPlaceholderText(/rechercher une grille/i), "introuvable");
 
@@ -452,6 +467,7 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid({ title: "Bingo réunion" })]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Rechercher" }));
       await user.type(screen.getByPlaceholderText(/rechercher une grille/i), "introuvable");
       await user.click(screen.getByRole("button", { name: "Fermer la recherche" }));
@@ -464,6 +480,7 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid({ title: "Bingo réunion" })]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Rechercher" }));
       fireEvent.keyDown(screen.getByPlaceholderText(/rechercher une grille/i), { key: "Escape" });
 
@@ -482,6 +499,7 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid({ id: "a", title: "Alpha" }), makeGrid({ id: "b", title: "Bravo" })]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Rechercher" }));
       await user.type(screen.getByPlaceholderText(/rechercher une grille/i), "Alpha");
 
@@ -503,6 +521,7 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid({ id: "g1", title: "Une grille" })]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
       expect(await screen.findByText("Synchroniser mes grilles", { selector: "h2" })).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Fermer" }));
@@ -512,6 +531,7 @@ describe("HomeView", () => {
     it("replaces grids via the sync modal's JSON import when confirmed", async () => {
       saveGrids([makeGrid({ id: "old", title: "Ancienne" })]);
       renderHome();
+      openMenu();
       fireEvent.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
       vi.spyOn(window, "confirm").mockReturnValue(true); // replace
 
@@ -534,6 +554,7 @@ describe("HomeView", () => {
     it("imports grids via the sync modal's JSON import", async () => {
       saveGrids([makeGrid({ id: "old", title: "Ancienne" })]);
       renderHome();
+      openMenu();
       fireEvent.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
       vi.spyOn(window, "confirm").mockReturnValue(false); // merge
 
@@ -636,6 +657,7 @@ describe("HomeView", () => {
 
     it("is not offered when there are no grids", () => {
       renderHome();
+      openMenu();
       expect(screen.queryByRole("button", { name: "Mode plein écran" })).not.toBeInTheDocument();
     });
 
@@ -643,6 +665,7 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid()]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
 
       expect(screen.queryByRole("button", { name: "+ Nouvelle grille" })).not.toBeInTheDocument();
@@ -654,6 +677,7 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid()]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
       await user.click(screen.getByRole("button", { name: "Quitter le mode plein écran" }));
 
@@ -664,6 +688,7 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid()]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
       fireEvent.keyDown(document, { key: "Escape" });
 
@@ -674,6 +699,7 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid()]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
       fireEvent.keyDown(document, { key: "Enter" });
 
@@ -694,6 +720,7 @@ describe("HomeView", () => {
       document.documentElement.requestFullscreen = requestFullscreen;
       saveGrids([makeGrid()]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
 
       expect(requestFullscreen).toHaveBeenCalledTimes(1);
@@ -704,6 +731,7 @@ describe("HomeView", () => {
       document.documentElement.requestFullscreen = vi.fn().mockRejectedValue(new Error("nope"));
       saveGrids([makeGrid()]);
       renderHome();
+      openMenu();
       await act(async () => {
         await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
       });
@@ -718,6 +746,7 @@ describe("HomeView", () => {
       document.exitFullscreen = exitFullscreen;
       saveGrids([makeGrid()]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
 
       Object.defineProperty(document, "fullscreenElement", {
@@ -736,6 +765,7 @@ describe("HomeView", () => {
       document.exitFullscreen = exitFullscreen;
       saveGrids([makeGrid()]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
       await user.click(screen.getByRole("button", { name: "Quitter le mode plein écran" }));
 
@@ -747,6 +777,7 @@ describe("HomeView", () => {
       document.exitFullscreen = vi.fn().mockRejectedValue(new Error("nope"));
       saveGrids([makeGrid()]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
 
       Object.defineProperty(document, "fullscreenElement", {
@@ -765,6 +796,7 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid()]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
 
       fireEvent(document, new Event("fullscreenchange"));
@@ -776,6 +808,7 @@ describe("HomeView", () => {
       const user = userEvent.setup();
       saveGrids([makeGrid()]);
       renderHome();
+      openMenu();
       await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
 
       Object.defineProperty(document, "fullscreenElement", {

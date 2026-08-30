@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createGrid, gotoFresh } from './helpers'
+import { createGrid, gotoFresh, openMenu } from './helpers'
 
 test.beforeEach(async ({ page }) => {
   await gotoFresh(page)
@@ -75,6 +75,7 @@ test('enters and exits focus mode on the home screen, hiding the topbar', async 
   })
   await page.goto('/')
 
+  await openMenu(page)
   await page.getByRole('button', { name: 'Mode plein écran' }).click()
   await expect(page.getByRole('button', { name: '+ Nouvelle grille' })).not.toBeVisible()
   await expect(page.getByRole('button', { name: 'Quitter le mode plein écran' })).toBeVisible()

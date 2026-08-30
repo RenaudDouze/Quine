@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createGrid, gotoFresh } from './helpers'
+import { createGrid, gotoFresh, openMenu } from './helpers'
 
 test.beforeEach(async ({ page }) => {
   await gotoFresh(page)
@@ -16,6 +16,7 @@ test('searches grids by title', async ({ page }) => {
   await createGrid(page, { title: 'Bingo vacances', size: 3, items: ['J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'] })
   await page.goto('/')
 
+  await openMenu(page)
   await page.getByRole('button', { name: 'Rechercher' }).click()
   await page.getByPlaceholder(/rechercher une grille/i).fill('vacances')
 
@@ -36,7 +37,7 @@ test('pins a grid to the top of the list', async ({ page }) => {
   expect(titles[0]).toContain('Bravo')
 })
 
-test('archives a grid, moving it to the Archivées tab, and can unarchive it', async ({ page }) => {
+test('archives a grid, moving it to the archived view, and can unarchive it', async ({ page }) => {
   await createGrid(page, { title: 'À archiver', size: 3, items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] })
   await page.goto('/')
 
@@ -44,13 +45,15 @@ test('archives a grid, moving it to the Archivées tab, and can unarchive it', a
   await page.getByRole('button', { name: /Archiver cette grille/ }).click()
 
   await expect(page.getByText('À archiver', { exact: true })).not.toBeVisible()
-  await page.getByRole('tab', { name: /Archivées/ }).click()
+  await openMenu(page)
+  await page.getByRole('button', { name: /Vue :/ }).click()
   await expect(page.getByText('À archiver', { exact: true })).toBeVisible()
 
   await customize(page, 'À archiver')
   await page.getByRole('button', { name: /Désarchiver cette grille/ }).click()
   await expect(page.getByText('À archiver', { exact: true })).not.toBeVisible()
-  await page.getByRole('tab', { name: 'Actives' }).click()
+  await openMenu(page)
+  await page.getByRole('button', { name: /Vue :/ }).click()
   await expect(page.getByText('À archiver', { exact: true })).toBeVisible()
 })
 
@@ -118,10 +121,12 @@ test('drag handles are hidden once a grid is archived, and reappear once no grid
   await page.getByRole('button', { name: /Archiver cette grille/ }).click()
   await expect(page.getByRole('button', { name: 'Réordonner' })).toHaveCount(0)
 
-  await page.getByRole('tab', { name: /Archivées/ }).click()
+  await openMenu(page)
+  await page.getByRole('button', { name: /Vue :/ }).click()
   await customize(page, 'Bravo')
   await page.getByRole('button', { name: /Désarchiver cette grille/ }).click()
-  await page.getByRole('tab', { name: 'Actives' }).click()
+  await openMenu(page)
+  await page.getByRole('button', { name: /Vue :/ }).click()
   await expect(page.getByRole('button', { name: 'Réordonner' })).toHaveCount(2)
 })
 

@@ -108,6 +108,28 @@ button {
   gap: 8px;
 }
 
+/* Menu déroulant horizontal (recherche, thème, synchronisation, plein écran,
+   filtre archivées) : replié par défaut derrière le bouton ⋯ de l'en-tête,
+   ancré en position absolue sous celui-ci plutôt que de repousser le reste
+   de la page vers le bas. Comme .app-menu dans +1. */
+.topbar-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: min(320px, 100vw - 32px);
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
 /* Buttons */
 .btn {
   border: none;
@@ -706,34 +728,6 @@ button {
   outline-offset: 1px;
 }
 
-/* Onglets Actives / Archivées */
-.archive-toggle {
-  display: inline-flex;
-  align-self: flex-start;
-  gap: 2px;
-  padding: 2px;
-  border-radius: 999px;
-  background: var(--bg-2);
-  margin-bottom: 14px;
-}
-
-.archive-toggle-btn {
-  border: none;
-  background: none;
-  color: var(--text-dim);
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.archive-toggle-btn.active {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-}
-
 /* Message d'annulation après une action destructrice */
 .undo-toast {
   position: fixed;
@@ -827,7 +821,6 @@ button {
   }
 
   .topbar,
-  .archive-toggle,
   .search-bar,
   .empty-state,
   .focus-exit-btn {

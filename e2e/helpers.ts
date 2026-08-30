@@ -7,6 +7,15 @@ export async function gotoFresh(page: Page) {
   await page.goto('/')
 }
 
+/** Ouvre le menu déroulant de l'en-tête (recherche, thème, synchronisation,
+ * plein écran, filtre archivées) s'il n'est pas déjà déplié, comme dans +1. */
+export async function openMenu(page: Page) {
+  const trigger = page.getByRole('button', { name: 'Ouvrir le menu' })
+  if (await trigger.isVisible().catch(() => false)) {
+    await trigger.click()
+  }
+}
+
 export async function createGrid(
   page: Page,
   options: {

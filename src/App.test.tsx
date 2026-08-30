@@ -78,16 +78,20 @@ describe("App", () => {
     expect(document.documentElement.dataset.theme).toBe("light");
     expect(meta.getAttribute("content")).toBe("#f8fafc");
 
+    await user.click(screen.getByRole("button", { name: "Ouvrir le menu" }));
     const toggle = screen.getByRole("button", { name: "Thème : Auto" });
     await user.click(toggle);
     expect(document.documentElement.dataset.theme).toBe("light");
-    expect(screen.getByRole("button", { name: "Thème : Clair" })).toBeInTheDocument();
 
+    await user.click(screen.getByRole("button", { name: "Ouvrir le menu" }));
+    expect(screen.getByRole("button", { name: "Thème : Clair" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Thème : Clair" }));
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(meta.getAttribute("content")).toBe("#0f172a");
 
+    await user.click(screen.getByRole("button", { name: "Ouvrir le menu" }));
     await user.click(screen.getByRole("button", { name: "Thème : Sombre" }));
+    await user.click(screen.getByRole("button", { name: "Ouvrir le menu" }));
     expect(screen.getByRole("button", { name: "Thème : Auto" })).toBeInTheDocument();
   });
 
