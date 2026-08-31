@@ -8,6 +8,7 @@ import { buildCells, matchesSearch, sortByPinned, type Grid } from "../lib/bingo
 import { loadGrids, saveGrids, uid } from "../lib/storage";
 import { now } from "../lib/time";
 import { navigate } from "../hooks/useHashRoute";
+import { useRemoteSync } from "../hooks/useRemoteSync";
 
 // Chargé à la demande : n'entre dans le bundle initial que si une modale de
 // partage/synchronisation est effectivement ouverte (embarque la dépendance
@@ -23,6 +24,7 @@ const ARCHIVE_VIEW_ICON: Record<ArchiveView, string> = { active: "📂", archive
 const NEXT_ARCHIVE_VIEW: Record<ArchiveView, ArchiveView> = { active: "archived", archived: "active" };
 
 const UNDO_TIMEOUT_MS = 5000;
+const SYNC_NOTICE_TIMEOUT_MS = 4000;
 
 interface Props {
   themePreference: ThemePreference;
@@ -54,6 +56,22 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   // d'écran, plutôt qu'un `window.confirm()` bloquant avant l'action.
   const [undo, setUndo] = useState<{ label: string; grids: Grid[] } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Message éphémère affiché quand des grilles arrivent d'un autre appareil
+  // pendant que l'app est déjà ouverte (voir useRemoteSync, onRemoteUpdate) :
+  // seul indice visible en dehors de la modale Synchroniser qu'une mise à
+  // jour vient d'être reçue.
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const syncNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  function showSyncNotice() {
+    setSyncNotice("Grilles mises à jour depuis un autre appareil");
+    clearTimeout(syncNoticeTimer.current);
+    syncNoticeTimer.current = setTimeout(() => setSyncNotice(null), SYNC_NOTICE_TIMEOUT_MS);
+  }
+  // Absent (fonctionnalité non configurée) tant que le worker de synchro n'a
+  // pas été déployé et sa variable d'environnement renseignée au build — voir
+  // worker/README.md. `useRemoteSync` reste alors inerte (aucun appel réseau).
+  const remoteSync = useRemoteSync(import.meta.env.VITE_SYNC_WORKER_URL, grids, persist, showSyncNotice);
 
   // Masque l'en-tête (titre, icônes, recherche, filtre archivés) pour ne
   // garder que la liste de grilles à l'écran (utile pour la projeter sur une
@@ -389,6 +407,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
             showJsonBackup
             onImport={handleImport}
             onClose={() => setSyncOpen(false)}
+            remoteSync={remoteSync}
           />
         </Suspense>
       )}
@@ -422,6 +441,12 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
 
       {editTarget && (
         <EditModal grid={editTarget} onClose={() => setEditTarget(null)} onSave={updateGrid} />
+      )}
+
+      {syncNotice && (
+        <div className="sync-toast" role="status">
+          <span>{syncNotice}</span>
+        </div>
       )}
 
       {undo && (

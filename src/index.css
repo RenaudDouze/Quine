@@ -15,6 +15,7 @@
   --danger: #e11d48;
   --gold: #f59e0b;
   --font-ui: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", "Roboto Mono", "SF Mono", Consolas, monospace;
   /* Opacité du voile posé sur une image de fond de carte, pour garder le
      texte lisible quelle que soit la photo choisie ; plus fort en sombre
      (le texte clair a besoin d'un fond plus opaque pour rester net). */
@@ -655,6 +656,31 @@ button {
   margin: 12px 0 0;
 }
 
+.sync-code {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-align: center;
+  color: var(--text);
+}
+
+.sync-status {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.sync-status--synced {
+  color: #16a34a;
+}
+
+.sync-status--error {
+  color: var(--danger);
+}
+
 .modal-hint--locked {
   background: var(--bg-2);
   color: var(--text);
@@ -761,6 +787,35 @@ button {
   font-weight: 700;
   text-decoration: underline;
   padding: 0;
+}
+
+/* En haut plutôt qu'en bas (contrairement à .undo-toast) : purement
+   informatif, sans action requise, ça évite aussi tout risque de
+   chevauchement avec le toast d'annulation si les deux apparaissaient en
+   même temps. */
+.sync-toast {
+  position: fixed;
+  left: 50%;
+  top: max(12px, env(safe-area-inset-top));
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 32px);
+  background: var(--text);
+  color: var(--surface);
+  padding: 10px 16px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+  font-size: 0.85rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.sync-toast span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Confetti de victoire : comme .counter-celebration dans +1, superposé à SA

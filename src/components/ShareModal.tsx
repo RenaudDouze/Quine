@@ -3,7 +3,9 @@ import QRCode from "qrcode";
 import type { Grid } from "../lib/bingo";
 import { downloadGridSvg } from "../lib/gridImage";
 import { printGrid } from "../lib/print";
+import { formatSyncCode } from "../lib/remoteSync";
 import { buildShareUrl, downloadBackup, parseBackupJson } from "../lib/share";
+import type { UseRemoteSyncResult } from "../hooks/useRemoteSync";
 
 interface Props {
   grids: Grid[];
@@ -14,7 +16,24 @@ interface Props {
   showJsonBackup?: boolean;
   onImport?: (grids: Grid[], mode: "replace" | "merge") => void;
   onClose: () => void;
+  /** Présent uniquement pour la modale « synchroniser toutes mes grilles » :
+   * absent quand on partage une seule grille (la synchro par code porte sur
+   * la liste entière, pas sur une grille isolée). */
+  remoteSync?: UseRemoteSyncResult;
 }
+
+const REMOTE_STATUS_LABEL: Record<UseRemoteSyncResult["status"], string> = {
+  disabled: "",
+  syncing: "Synchronisation…",
+  synced: "Synchronisé ✓",
+  error: "Erreur de synchronisation",
+};
+
+const JOIN_OUTCOME_ERROR: Record<"invalid" | "not-found" | "error", string> = {
+  invalid: "Code invalide (8 caractères attendus).",
+  "not-found": "Ce code de synchronisation est introuvable.",
+  error: "Impossible de rejoindre ce code, réessaie.",
+};
 
 export default function ShareModal({
   grids,
@@ -25,12 +44,16 @@ export default function ShareModal({
   showJsonBackup,
   onImport,
   onClose,
+  remoteSync,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [joinInput, setJoinInput] = useState("");
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   // Synchronise avec la génération asynchrone du QR code (dépend de
   // `grids`) : ne peut pas être dérivé pendant le rendu.
@@ -86,6 +109,21 @@ export default function ShareModal({
     }
   }
 
+  // N'est appelée que depuis les boutons/raccourcis du bloc "Code de
+  // synchro" ci-dessous, qui n'existe dans le DOM que si `remoteSync` est
+  // fourni : la non-nullité est garantie par le rendu conditionnel, pas
+  // besoin de la revérifier ici.
+  async function handleJoinCode() {
+    setJoinError(null);
+    const outcome = await remoteSync!.joinCode(joinInput);
+    if (outcome === "joined") {
+      setJoinOpen(false);
+      setJoinInput("");
+      return;
+    }
+    setJoinError(JOIN_OUTCOME_ERROR[outcome]);
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
@@ -95,6 +133,58 @@ export default function ShareModal({
             ✕
           </button>
         </div>
+
+        {remoteSync && import.meta.env.VITE_SYNC_WORKER_URL && (
+          <section className="modal-section">
+            <h3>Code de synchro</h3>
+            {remoteSync.code ? (
+              <>
+                <p className="sync-code">{formatSyncCode(remoteSync.code)}</p>
+                <p className={`sync-status sync-status--${remoteSync.status}`}>
+                  {remoteSync.status === "error" && remoteSync.errorMessage
+                    ? remoteSync.errorMessage
+                    : REMOTE_STATUS_LABEL[remoteSync.status]}
+                </p>
+                <button className="modal-btn" onClick={remoteSync.disable}>
+                  Se déconnecter
+                </button>
+              </>
+            ) : joinOpen ? (
+              <div className="modal-row">
+                <input
+                  autoFocus
+                  className="modal-input"
+                  placeholder="XXXX XXXX"
+                  value={joinInput}
+                  onChange={(e) => setJoinInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleJoinCode();
+                    if (e.key === "Escape") setJoinOpen(false);
+                  }}
+                />
+                <button className="modal-btn" onClick={handleJoinCode} disabled={joinInput.trim() === ""}>
+                  Rejoindre
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="modal-hint">
+                  Synchronise automatiquement tes grilles avec un autre appareil, sans compte : génère un code sur le
+                  premier, saisis-le sur le second.
+                </p>
+                <div className="modal-row">
+                  <button className="modal-btn" onClick={() => remoteSync.createCode()}>
+                    Nouveau code
+                  </button>
+                  <button className="modal-btn" onClick={() => setJoinOpen(true)}>
+                    Saisir un code
+                  </button>
+                </div>
+              </>
+            )}
+            {joinError && <p className="modal-error">{joinError}</p>}
+          </section>
+        )}
 
         <section className="modal-section">
           <p className="modal-hint">{hint}</p>
