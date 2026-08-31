@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildCells, type Grid } from "../lib/bingo";
 import { loadGrids, saveGrids } from "../lib/storage";
+import { useRemoteSync } from "../hooks/useRemoteSync";
 import HomeView from "./HomeView";
 
 vi.mock("qrcode", () => ({
@@ -10,6 +11,17 @@ vi.mock("qrcode", () => ({
     toDataURL: vi.fn().mockResolvedValue("data:image/png;base64,fake"),
   },
 }));
+
+// Enveloppe l'implémentation réelle (délègue à elle par défaut, donc n'affecte
+// aucun autre test) : sert uniquement à intercepter le callback
+// `onRemoteUpdate` passé par HomeView, pour le déclencher directement plutôt
+// que de simuler un aller-retour réseau complet (déjà couvert au niveau du
+// hook dans useRemoteSync.test.ts, et bout en bout en e2e).
+vi.mock("../hooks/useRemoteSync", async () => {
+  const actual = await vi.importActual<typeof import("../hooks/useRemoteSync")>("../hooks/useRemoteSync");
+  return { ...actual, useRemoteSync: vi.fn(actual.useRemoteSync) };
+});
+const defaultUseRemoteSyncImpl = vi.mocked(useRemoteSync).getMockImplementation()!;
 
 function renderHome(props: Partial<Parameters<typeof HomeView>[0]> = {}) {
   const onThemePreferenceChange = vi.fn();
@@ -819,6 +831,40 @@ describe("HomeView", () => {
 
       expect(screen.queryByRole("button", { name: "+ Nouvelle grille" })).not.toBeInTheDocument();
       Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+    });
+  });
+
+  describe("notification de mise à jour à distance", () => {
+    afterEach(() => {
+      vi.mocked(useRemoteSync).mockImplementation(defaultUseRemoteSyncImpl);
+    });
+
+    it("affiche un message quand useRemoteSync signale une mise à jour reçue d'un autre appareil, qui disparaît après le délai", () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      let triggerRemoteUpdate: (() => void) | undefined;
+      vi.mocked(useRemoteSync).mockImplementation((_workerUrl, _grids, _setGrids, onRemoteUpdate) => {
+        triggerRemoteUpdate = onRemoteUpdate;
+        return {
+          code: null,
+          status: "disabled",
+          errorMessage: null,
+          createCode: async () => false,
+          joinCode: async () => "error",
+          disable: () => {},
+        };
+      });
+
+      renderHome();
+      act(() => {
+        triggerRemoteUpdate?.();
+      });
+      expect(screen.getByText("Grilles mises à jour depuis un autre appareil")).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(4100);
+      });
+      expect(screen.queryByText("Grilles mises à jour depuis un autre appareil")).not.toBeInTheDocument();
+      vi.useRealTimers();
     });
   });
 });

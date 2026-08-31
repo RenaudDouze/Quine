@@ -1,0 +1,374 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import worker, { isValidPushRequest, kvKey, RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_SECONDS, type Env } from "./index";
+import { generateSyncCode } from "./code";
+
+/** Implémentation en mémoire du sous-ensemble de KVNamespace utilisé par le
+ * worker (get/put) : suffisant pour tester le routage et la logique sans
+ * dépendre du runtime Cloudflare. */
+function createMockKv() {
+  const store = new Map<string, string>();
+  return {
+    store,
+    get: (async (key: string) => store.get(key) ?? null) as KVNamespace["get"],
+    put: (async (key: string, value: string) => {
+      store.set(key, value);
+    }) as KVNamespace["put"],
+  } as unknown as KVNamespace;
+}
+
+function makeEnv(): Env {
+  return { SYNC_KV: createMockKv(), ALLOWED_ORIGIN: "*" };
+}
+
+function request(method: string, path: string, body?: unknown, extraHeaders?: Record<string, string>): Request {
+  const init: RequestInit = { method };
+  const headers: Record<string, string> = { ...extraHeaders };
+  if (body !== undefined) {
+    const json = JSON.stringify(body);
+    init.body = json;
+    headers["Content-Type"] = "application/json";
+    headers["Content-Length"] = String(json.length);
+  }
+  init.headers = headers;
+  return new Request(`https://sync.example.com${path}`, init);
+}
+
+function requestFrom(ip: string, method: string, path: string, body?: unknown): Request {
+  return request(method, path, body, { "CF-Connecting-IP": ip });
+}
+
+describe("isValidPushRequest", () => {
+  it("accepte baseVersion numérique et grids tableau", () => {
+    expect(isValidPushRequest({ baseVersion: 1, grids: [] })).toBe(true);
+  });
+
+  it("refuse une valeur qui n'est pas un objet", () => {
+    expect(isValidPushRequest("nope")).toBe(false);
+  });
+
+  it("refuse null", () => {
+    expect(isValidPushRequest(null)).toBe(false);
+  });
+
+  it("refuse un baseVersion non numérique", () => {
+    expect(isValidPushRequest({ baseVersion: "1", grids: [] })).toBe(false);
+  });
+
+  it("refuse grids qui n'est pas un tableau", () => {
+    expect(isValidPushRequest({ baseVersion: 1, grids: {} })).toBe(false);
+  });
+});
+
+describe("routage", () => {
+  let env: Env;
+
+  beforeEach(() => {
+    env = makeEnv();
+  });
+
+  it("répond au préflight CORS", async () => {
+    const res = await worker.fetch(request("OPTIONS", "/api/sync"), env);
+    expect(res.status).toBe(204);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("retombe sur '*' quand ALLOWED_ORIGIN n'est pas configuré", async () => {
+    const bareEnv: Env = { SYNC_KV: env.SYNC_KV };
+    const res = await worker.fetch(request("OPTIONS", "/api/sync"), bareEnv);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("ignore un chemin collé dans ALLOWED_ORIGIN (ne garde que schéma+hôte)", async () => {
+    const withPath: Env = { SYNC_KV: env.SYNC_KV, ALLOWED_ORIGIN: "https://exemple.github.io/mon-repo" };
+    const res = await worker.fetch(request("OPTIONS", "/api/sync"), withPath);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://exemple.github.io");
+  });
+
+  it("retombe sur '*' quand ALLOWED_ORIGIN n'est pas une URL valide", async () => {
+    const malformed: Env = { SYNC_KV: env.SYNC_KV, ALLOWED_ORIGIN: "pas-une-url" };
+    const res = await worker.fetch(request("OPTIONS", "/api/sync"), malformed);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("renvoie 404 hors du préfixe /api/sync", async () => {
+    const res = await worker.fetch(request("GET", "/autre-chose"), env);
+    expect(res.status).toBe(404);
+  });
+
+  it("renvoie 405 sur /api/sync avec une méthode autre que POST", async () => {
+    const res = await worker.fetch(request("GET", "/api/sync"), env);
+    expect(res.status).toBe(405);
+  });
+
+  it("renvoie 400 pour un code au mauvais format", async () => {
+    const res = await worker.fetch(request("GET", "/api/sync/trop-court"), env);
+    expect(res.status).toBe(400);
+  });
+
+  it("renvoie 405 sur /api/sync/:code avec une méthode autre que GET/PUT", async () => {
+    const code = generateSyncCode();
+    const res = await worker.fetch(request("DELETE", `/api/sync/${code}`), env);
+    expect(res.status).toBe(405);
+  });
+
+  it("renvoie 404 pour un chemin plus profond que /api/sync/:code", async () => {
+    const code = generateSyncCode();
+    const res = await worker.fetch(request("GET", `/api/sync/${code}/extra`), env);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("POST /api/sync (création)", () => {
+  it("crée un nouveau code et le stocke avec un état vide, version 0", async () => {
+    const env = makeEnv();
+    const res = await worker.fetch(request("POST", "/api/sync"), env);
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toHaveLength(8);
+
+    const stored = await env.SYNC_KV.get(kvKey(body.code));
+    expect(stored).not.toBeNull();
+    expect(JSON.parse(stored!)).toEqual({ version: 0, grids: [] });
+  });
+
+  it("réessaie sur collision plutôt que de renvoyer un code déjà pris", async () => {
+    const env = makeEnv();
+    const occupied = "A".repeat(8);
+    await env.SYNC_KV.put(kvKey(occupied), JSON.stringify({ version: 0, grids: [] }));
+
+    // `Math.random() = 0` produit systématiquement le premier caractère de
+    // l'alphabet ('A') : forcé pour les 8 caractères de la première tentative
+    // (code == 'AAAAAAAA', déjà occupé), puis relâché pour que la deuxième
+    // tentative génère un code différent et réussisse.
+    const originalRandom = Math.random;
+    let calls = 0;
+    Math.random = () => {
+      calls++;
+      return calls <= 8 ? 0 : originalRandom();
+    };
+    try {
+      const res = await worker.fetch(request("POST", "/api/sync"), env);
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { code: string };
+      expect(body.code).not.toBe(occupied);
+      expect(calls).toBeGreaterThan(8);
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+
+  it("renvoie 500 si aucun code libre trouvé après plusieurs essais", async () => {
+    const env = makeEnv();
+    const originalRandom = Math.random;
+    Math.random = () => 0; // génère toujours le même code -> toujours en collision
+    try {
+      await env.SYNC_KV.put(kvKey("A".repeat(8)), "occupé");
+      const res = await worker.fetch(request("POST", "/api/sync"), env);
+      expect(res.status).toBe(500);
+    } finally {
+      Math.random = originalRandom;
+    }
+  });
+});
+
+describe("GET /api/sync/:code (lecture)", () => {
+  it("renvoie 404 pour un code inconnu", async () => {
+    const env = makeEnv();
+    const code = generateSyncCode();
+    const res = await worker.fetch(request("GET", `/api/sync/${code}`), env);
+    expect(res.status).toBe(404);
+  });
+
+  it("renvoie le contenu stocké pour un code existant", async () => {
+    const env = makeEnv();
+    const code = generateSyncCode();
+    const state = { version: 42, grids: [{ id: "a" }] };
+    await env.SYNC_KV.put(kvKey(code), JSON.stringify(state));
+
+    const res = await worker.fetch(request("GET", `/api/sync/${code}`), env);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(state);
+  });
+
+  it("normalise le code de la route (tirets, minuscules)", async () => {
+    const env = makeEnv();
+    const code = generateSyncCode();
+    const state = { version: 0, grids: [] };
+    await env.SYNC_KV.put(kvKey(code), JSON.stringify(state));
+
+    const spacedOut = `${code.slice(0, 4)}-${code.slice(4)}`.toLowerCase();
+    const res = await worker.fetch(request("GET", `/api/sync/${spacedOut}`), env);
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("PUT /api/sync/:code (écriture)", () => {
+  it("crée le blob si le code n'a encore rien stocké (baseVersion 0)", async () => {
+    const env = makeEnv();
+    const code = generateSyncCode();
+    const push = { baseVersion: 0, grids: [{ id: "a" }] };
+
+    const res = await worker.fetch(request("PUT", `/api/sync/${code}`, push), env);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ version: 1, grids: push.grids });
+  });
+
+  it("accepte et incrémente la version quand baseVersion correspond à la version stockée", async () => {
+    const env = makeEnv();
+    const code = generateSyncCode();
+    await env.SYNC_KV.put(kvKey(code), JSON.stringify({ version: 10, grids: [] }));
+
+    const push = { baseVersion: 10, grids: [{ id: "b" }] };
+    const res = await worker.fetch(request("PUT", `/api/sync/${code}`, push), env);
+    expect(res.status).toBe(200);
+    const expected = { version: 11, grids: push.grids };
+    expect(await res.json()).toEqual(expected);
+    expect(JSON.parse((await env.SYNC_KV.get(kvKey(code)))!)).toEqual(expected);
+  });
+
+  it("refuse (409) et renvoie la version serveur quand baseVersion est en retard", async () => {
+    const env = makeEnv();
+    const code = generateSyncCode();
+    const serverState = { version: 5, grids: [{ id: "serveur" }] };
+    await env.SYNC_KV.put(kvKey(code), JSON.stringify(serverState));
+
+    const stale = { baseVersion: 1, grids: [{ id: "périmé" }] };
+    const res = await worker.fetch(request("PUT", `/api/sync/${code}`, stale), env);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual(serverState);
+    // La tentative refusée ne doit pas avoir modifié le stockage.
+    expect(JSON.parse((await env.SYNC_KV.get(kvKey(code)))!)).toEqual(serverState);
+  });
+
+  it("refuse (409) même quand baseVersion est en avance sur la version stockée", async () => {
+    // Ne devrait normalement pas arriver (le client ne peut pas connaître une
+    // version future), mais confirme que la comparaison est une égalité
+    // stricte et non une simple borne inférieure.
+    const env = makeEnv();
+    const code = generateSyncCode();
+    const serverState = { version: 5, grids: [] };
+    await env.SYNC_KV.put(kvKey(code), JSON.stringify(serverState));
+
+    const ahead = { baseVersion: 6, grids: [{ id: "x" }] };
+    const res = await worker.fetch(request("PUT", `/api/sync/${code}`, ahead), env);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual(serverState);
+  });
+
+  it("renvoie 400 pour un JSON invalide", async () => {
+    const env = makeEnv();
+    const code = generateSyncCode();
+    const req = new Request(`https://sync.example.com/api/sync/${code}`, {
+      method: "PUT",
+      body: "{ pas du json",
+      headers: { "Content-Length": "20" },
+    });
+    const res = await worker.fetch(req, env);
+    expect(res.status).toBe(400);
+  });
+
+  it("renvoie 400 pour un payload de forme invalide", async () => {
+    const env = makeEnv();
+    const code = generateSyncCode();
+    const res = await worker.fetch(request("PUT", `/api/sync/${code}`, { nope: true }), env);
+    expect(res.status).toBe(400);
+  });
+
+  it("traite l'absence d'en-tête Content-Length comme une taille nulle (accepte le corps)", async () => {
+    const env = makeEnv();
+    const code = generateSyncCode();
+    const push = { baseVersion: 0, grids: [] };
+    const req = new Request(`https://sync.example.com/api/sync/${code}`, {
+      method: "PUT",
+      body: JSON.stringify(push),
+    });
+    const res = await worker.fetch(req, env);
+    expect(res.status).toBe(200);
+  });
+
+  it("renvoie 413 pour un corps trop volumineux", async () => {
+    const env = makeEnv();
+    const code = generateSyncCode();
+    const req = new Request(`https://sync.example.com/api/sync/${code}`, {
+      method: "PUT",
+      body: JSON.stringify({ baseVersion: 0, grids: [] }),
+      headers: { "Content-Length": String(1024 * 1024) },
+    });
+    const res = await worker.fetch(req, env);
+    expect(res.status).toBe(413);
+  });
+});
+
+describe("limitation de débit par IP", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("accepte jusqu'au quota, puis refuse (429) la requête suivante de la même IP", async () => {
+    const env = makeEnv();
+    for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i++) {
+      const res = await worker.fetch(requestFrom("1.2.3.4", "GET", "/autre-chose"), env);
+      expect(res.status).toBe(404); // route inexistante, mais pas rejetée par le quota
+    }
+    const res = await worker.fetch(requestFrom("1.2.3.4", "GET", "/autre-chose"), env);
+    expect(res.status).toBe(429);
+  });
+
+  it("indique un délai de nouvelle tentative sur un 429", async () => {
+    const env = makeEnv();
+    for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i++) {
+      await worker.fetch(requestFrom("5.5.5.5", "GET", "/autre-chose"), env);
+    }
+    const res = await worker.fetch(requestFrom("5.5.5.5", "GET", "/autre-chose"), env);
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe(String(RATE_LIMIT_WINDOW_SECONDS));
+    // Toujours les en-têtes CORS habituels, même sur un refus de quota.
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("tient un quota indépendant par IP (une IP qui abuse ne bloque pas les autres)", async () => {
+    const env = makeEnv();
+    for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i++) {
+      await worker.fetch(requestFrom("9.9.9.9", "GET", "/autre-chose"), env);
+    }
+    const blocked = await worker.fetch(requestFrom("9.9.9.9", "GET", "/autre-chose"), env);
+    expect(blocked.status).toBe(429);
+
+    const otherIp = await worker.fetch(requestFrom("8.8.8.8", "GET", "/autre-chose"), env);
+    expect(otherIp.status).toBe(404);
+  });
+
+  it("regroupe les requêtes sans IP identifiable (hors runtime Cloudflare) sous un même compartiment", async () => {
+    const env = makeEnv();
+    for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i++) {
+      const res = await worker.fetch(request("GET", "/autre-chose"), env);
+      expect(res.status).toBe(404);
+    }
+    const res = await worker.fetch(request("GET", "/autre-chose"), env);
+    expect(res.status).toBe(429);
+  });
+
+  it("ne compte jamais le préflight CORS (OPTIONS), même une fois le quota atteint", async () => {
+    const env = makeEnv();
+    for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i++) {
+      await worker.fetch(requestFrom("3.3.3.3", "GET", "/autre-chose"), env);
+    }
+    const preflight = await worker.fetch(requestFrom("3.3.3.3", "OPTIONS", "/api/sync"), env);
+    expect(preflight.status).toBe(204);
+  });
+
+  it("réinitialise le quota une fois la fenêtre suivante entamée", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const env = makeEnv();
+    for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i++) {
+      await worker.fetch(requestFrom("7.7.7.7", "GET", "/autre-chose"), env);
+    }
+    const stillBlocked = await worker.fetch(requestFrom("7.7.7.7", "GET", "/autre-chose"), env);
+    expect(stillBlocked.status).toBe(429);
+
+    vi.setSystemTime(new Date(Date.now() + RATE_LIMIT_WINDOW_SECONDS * 1000));
+    const afterWindow = await worker.fetch(requestFrom("7.7.7.7", "GET", "/autre-chose"), env);
+    expect(afterWindow.status).toBe(404);
+  });
+});

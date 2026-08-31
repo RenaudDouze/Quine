@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildCells, type Grid } from "../lib/bingo";
 import { downloadGridSvg } from "../lib/gridImage";
 import { printGrid } from "../lib/print";
+import type { UseRemoteSyncResult } from "../hooks/useRemoteSync";
 import ShareModal from "./ShareModal";
 
 vi.mock("qrcode", () => ({
@@ -43,6 +44,18 @@ const defaultProps = {
   emptyHint: "Rien à partager",
   qrAlt: "QR code",
 };
+
+function makeRemoteSync(overrides: Partial<UseRemoteSyncResult> = {}): UseRemoteSyncResult {
+  return {
+    code: null,
+    status: "disabled",
+    errorMessage: null,
+    createCode: vi.fn(),
+    joinCode: vi.fn(),
+    disable: vi.fn(),
+    ...overrides,
+  };
+}
 
 describe("ShareModal", () => {
   const toDataURLMock = QRCode.toDataURL as unknown as ReturnType<
@@ -340,6 +353,142 @@ describe("ShareModal", () => {
         screen.getByText("Impossible de copier automatiquement, sélectionne le lien manuellement.")
       ).toBeInTheDocument();
       vi.unstubAllGlobals();
+    });
+  });
+
+  describe("code de synchro", () => {
+    it("n'affiche pas la section sans prop remoteSync", () => {
+      render(<ShareModal {...defaultProps} grids={[]} onClose={vi.fn()} />);
+      expect(screen.queryByText("Code de synchro")).not.toBeInTheDocument();
+    });
+
+    it("n'affiche pas la section sans worker de synchro configuré, même avec remoteSync", () => {
+      render(<ShareModal {...defaultProps} grids={[]} remoteSync={makeRemoteSync()} onClose={vi.fn()} />);
+      expect(screen.queryByText("Code de synchro")).not.toBeInTheDocument();
+    });
+
+    describe("avec un worker configuré (VITE_SYNC_WORKER_URL)", () => {
+      beforeEach(() => {
+        vi.stubEnv("VITE_SYNC_WORKER_URL", "https://sync.example.workers.dev");
+      });
+
+      afterEach(() => {
+        vi.unstubAllEnvs();
+      });
+
+      it("n'affiche pas la section sans prop remoteSync", () => {
+        render(<ShareModal {...defaultProps} grids={[]} onClose={vi.fn()} />);
+        expect(screen.queryByText("Code de synchro")).not.toBeInTheDocument();
+      });
+
+      it("propose de créer ou rejoindre un code quand inactif", () => {
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={makeRemoteSync()} onClose={vi.fn()} />);
+        expect(screen.getByText("Code de synchro")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Nouveau code" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Saisir un code" })).toBeInTheDocument();
+      });
+
+      it("déclenche createCode au clic sur Nouveau code", () => {
+        const remoteSync = makeRemoteSync();
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Nouveau code" }));
+        expect(remoteSync.createCode).toHaveBeenCalledTimes(1);
+      });
+
+      it("révèle le champ de saisie au clic sur Saisir un code", () => {
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={makeRemoteSync()} onClose={vi.fn()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Saisir un code" }));
+        expect(screen.getByPlaceholderText("XXXX XXXX")).toBeInTheDocument();
+      });
+
+      it("désactive Rejoindre tant que le champ est vide", () => {
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={makeRemoteSync()} onClose={vi.fn()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Saisir un code" }));
+        expect(screen.getByRole("button", { name: "Rejoindre" })).toBeDisabled();
+      });
+
+      it("rejoint un code au clic sur Rejoindre", async () => {
+        const remoteSync = makeRemoteSync({ joinCode: vi.fn().mockResolvedValue("joined") });
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Saisir un code" }));
+        fireEvent.change(screen.getByPlaceholderText("XXXX XXXX"), { target: { value: "abcdefgh" } });
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name: "Rejoindre" }));
+        });
+        expect(remoteSync.joinCode).toHaveBeenCalledWith("abcdefgh");
+        expect(screen.queryByPlaceholderText("XXXX XXXX")).not.toBeInTheDocument();
+      });
+
+      it("rejoint un code avec la touche Entrée", async () => {
+        const remoteSync = makeRemoteSync({ joinCode: vi.fn().mockResolvedValue("joined") });
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Saisir un code" }));
+        const input = screen.getByPlaceholderText("XXXX XXXX");
+        fireEvent.change(input, { target: { value: "abcdefgh" } });
+        await act(async () => {
+          fireEvent.keyDown(input, { key: "Enter" });
+        });
+        expect(remoteSync.joinCode).toHaveBeenCalledWith("abcdefgh");
+      });
+
+      it("ferme le champ de saisie avec Échap", () => {
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={makeRemoteSync()} onClose={vi.fn()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Saisir un code" }));
+        const input = screen.getByPlaceholderText("XXXX XXXX");
+        fireEvent.keyDown(input, { key: "Escape" });
+        expect(screen.queryByPlaceholderText("XXXX XXXX")).not.toBeInTheDocument();
+      });
+
+      it.each([
+        ["invalid", "Code invalide (8 caractères attendus)."],
+        ["not-found", "Ce code de synchronisation est introuvable."],
+        ["error", "Impossible de rejoindre ce code, réessaie."],
+      ] as const)("affiche l'erreur correspondante pour l'issue %s", async (outcome, message) => {
+        const remoteSync = makeRemoteSync({ joinCode: vi.fn().mockResolvedValue(outcome) });
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Saisir un code" }));
+        fireEvent.change(screen.getByPlaceholderText("XXXX XXXX"), { target: { value: "abcdefgh" } });
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name: "Rejoindre" }));
+        });
+        expect(screen.getByText(message)).toBeInTheDocument();
+      });
+
+      it("affiche le code actif formaté et le bouton de déconnexion", () => {
+        const remoteSync = makeRemoteSync({ code: "ABCDEFGH", status: "syncing" });
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        expect(screen.getByText("ABCD EFGH")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Se déconnecter" })).toBeInTheDocument();
+      });
+
+      it("appelle disable au clic sur Se déconnecter", () => {
+        const remoteSync = makeRemoteSync({ code: "ABCDEFGH", status: "synced" });
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Se déconnecter" }));
+        expect(remoteSync.disable).toHaveBeenCalledTimes(1);
+      });
+
+      it("affiche « Synchronisé ✓ » quand le statut est synced", () => {
+        const remoteSync = makeRemoteSync({ code: "ABCDEFGH", status: "synced" });
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        expect(screen.getByText("Synchronisé ✓")).toBeInTheDocument();
+      });
+
+      it("affiche le message d'erreur précis en cas d'erreur", () => {
+        const remoteSync = makeRemoteSync({
+          code: "ABCDEFGH",
+          status: "error",
+          errorMessage: "Ce code de synchronisation n'existe plus.",
+        });
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        expect(screen.getByText("Ce code de synchronisation n'existe plus.")).toBeInTheDocument();
+      });
+
+      it("affiche un message d'erreur générique si aucun message précis n'est fourni", () => {
+        const remoteSync = makeRemoteSync({ code: "ABCDEFGH", status: "error", errorMessage: null });
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        expect(screen.getByText("Erreur de synchronisation")).toBeInTheDocument();
+      });
     });
   });
 });

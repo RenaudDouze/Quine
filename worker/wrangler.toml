@@ -1,0 +1,21 @@
+name = "bingo-sync"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# Créé avec `npx wrangler kv namespace create SYNC_KV` (voir README.md) :
+# remplace `id` par celui que la commande affiche avant de déployer.
+[[kv_namespaces]]
+binding = "SYNC_KV"
+id = "colle-l-id-ici"
+
+# Optionnel : restreint les requêtes à une seule origine (ex :
+# "https://tonpseudo.github.io") plutôt que d'accepter n'importe quel site.
+# Laisse "*" si tu ne sais pas encore sur quel domaine l'app sera servie.
+# Schéma + hôte uniquement, sans chemin ni slash final (une page GitHub Pages
+# de projet vit sous un chemin, ex. "https://tonpseudo.github.io/bingo",
+# mais l'origine du navigateur — ce que le worker doit comparer — ne
+# contient jamais ce chemin). Le worker normalise cette valeur au
+# déploiement (voir `normalizedAllowedOrigin` dans src/index.ts) au cas où,
+# mais autant la coller correcte dès le départ.
+[vars]
+ALLOWED_ORIGIN = "https://renauddouze.github.io"

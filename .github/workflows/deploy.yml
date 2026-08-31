@@ -26,6 +26,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          # Non secrète (juste l'adresse du worker, protégée par le code de
+          # synchro) : réglable dans Settings → Secrets and variables →
+          # Actions → Variables. Absente = fonctionnalité masquée dans l'app
+          # déployée (voir worker/README.md).
+          VITE_SYNC_WORKER_URL: ${{ vars.VITE_SYNC_WORKER_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

@@ -32,7 +32,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4173',
+    // VITE_SYNC_WORKER_URL fictive : active la section « Code de synchro »
+    // pour les tests (voir e2e/remote-sync.spec.ts, qui simule le worker via
+    // page.route) sans dépendre d'un vrai déploiement Cloudflare.
+    command:
+      'VITE_SYNC_WORKER_URL=http://sync.invalid npm run build && npm run preview -- --host 127.0.0.1 --port 4173',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

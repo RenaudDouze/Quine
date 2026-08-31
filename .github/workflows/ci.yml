@@ -90,6 +90,23 @@ jobs:
           path: reports/mutation/
           retention-days: 14
 
+  worker-tests:
+    name: Worker de synchronisation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+        working-directory: worker
+      - run: npm run typecheck
+        working-directory: worker
+      - run: npm test
+        working-directory: worker
+
   build:
     name: Build de production
     needs: [lint, typecheck, unit-tests, e2e-tests]
