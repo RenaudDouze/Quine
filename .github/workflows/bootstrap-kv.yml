@@ -15,7 +15,15 @@ jobs:
           cache-dependency-path: worker/package-lock.json
       - run: npm ci
         working-directory: worker
-      - run: npx wrangler kv namespace create SYNC_KV
+      - run: npx wrangler kv namespace list
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Un titre distinct de "SYNC_KV" : ce compte a déjà un espace nommé
+      # ainsi (celui de +1, même nom de binding) - le titre Cloudflare n'a
+      # pas besoin de correspondre au binding utilisé dans wrangler.toml.
+      - run: npx wrangler kv namespace create bingo-sync-kv
         working-directory: worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
