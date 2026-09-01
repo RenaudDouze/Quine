@@ -85,6 +85,22 @@ describe("appels réseau", () => {
       vi.mocked(fetch).mockResolvedValue(new Response("pas du json", { status: 201 }));
       await expect(createSyncCode(WORKER_URL)).rejects.toThrow("illisible");
     });
+
+    it("inclut le détail renvoyé par le worker quand la requête échoue (ex : exception interne)", async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        jsonResponse({ error: "Erreur interne du serveur.", detail: "Cannot read properties of undefined" }, 500)
+      );
+      await expect(createSyncCode(WORKER_URL)).rejects.toThrow(
+        new Error("Impossible de créer un code de synchronisation. (Cannot read properties of undefined)")
+      );
+    });
+
+    it("ignore un détail qui n'est pas une chaîne (ne l'ajoute pas au message)", async () => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse({ error: "Erreur interne du serveur.", detail: 42 }, 500));
+      await expect(createSyncCode(WORKER_URL)).rejects.toThrow(
+        new Error("Impossible de créer un code de synchronisation.")
+      );
+    });
   });
 
   describe("fetchSyncState", () => {
@@ -103,6 +119,13 @@ describe("appels réseau", () => {
     it("lève une erreur pour tout autre statut en échec", async () => {
       vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 500 }));
       await expect(fetchSyncState(WORKER_URL, "ABCDEFGH")).rejects.toThrow("Impossible de récupérer");
+    });
+
+    it("garde le message générique si le corps JSON de l'erreur n'a pas de détail exploitable", async () => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse({ error: "Method not allowed" }, 405));
+      await expect(fetchSyncState(WORKER_URL, "ABCDEFGH")).rejects.toThrow(
+        new Error("Impossible de récupérer les grilles synchronisées.")
+      );
     });
   });
 

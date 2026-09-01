@@ -58,7 +58,9 @@ async function openCustomize(user: ReturnType<typeof userEvent.setup>, title: st
 // archivées vivent dans le menu déroulant de l'en-tête, replié par défaut :
 // chaque test qui les exerce doit d'abord l'ouvrir, comme dans +1.
 function openMenu() {
-  const trigger = screen.queryByRole("button", { name: "Ouvrir le menu" });
+  // Préfixe seul (regex) : le libellé complet gagne un suffixe quand la
+  // synchro est en erreur (voir "indicateur d'erreur de synchro...").
+  const trigger = screen.queryByRole("button", { name: /^Ouvrir le menu/ });
   if (trigger) fireEvent.click(trigger);
 }
 
@@ -865,6 +867,63 @@ describe("HomeView", () => {
       });
       expect(screen.queryByText("Grilles mises à jour depuis un autre appareil")).not.toBeInTheDocument();
       vi.useRealTimers();
+    });
+  });
+
+  describe("indicateur d'erreur de synchro visible en dehors de la modale", () => {
+    afterEach(() => {
+      vi.mocked(useRemoteSync).mockImplementation(defaultUseRemoteSyncImpl);
+    });
+
+    it("marque le bouton du menu quand la synchro est en erreur, sans avoir à ouvrir la modale Synchroniser", () => {
+      vi.mocked(useRemoteSync).mockReturnValue({
+        code: "ABCDEFGH",
+        status: "error",
+        errorMessage: "Failed to fetch",
+        createCode: async () => false,
+        joinCode: async () => "error",
+        disable: () => {},
+      });
+
+      renderHome();
+
+      const menuBtn = screen.getByRole("button", { name: "Ouvrir le menu (erreur de synchronisation)" });
+      expect(menuBtn).toHaveClass("icon-btn--alert");
+    });
+
+    it("marque aussi le bouton Synchroniser du menu déroulant quand la synchro est en erreur", () => {
+      vi.mocked(useRemoteSync).mockReturnValue({
+        code: "ABCDEFGH",
+        status: "error",
+        errorMessage: "Failed to fetch",
+        createCode: async () => false,
+        joinCode: async () => "error",
+        disable: () => {},
+      });
+
+      renderHome();
+      openMenu();
+
+      const syncBtn = screen.getByRole("button", { name: "Synchroniser mes grilles (erreur de synchronisation)" });
+      expect(syncBtn).toHaveClass("icon-btn--alert");
+    });
+
+    it("n'affiche aucun indicateur quand la synchro n'est pas en erreur", () => {
+      vi.mocked(useRemoteSync).mockReturnValue({
+        code: "ABCDEFGH",
+        status: "synced",
+        errorMessage: null,
+        createCode: async () => false,
+        joinCode: async () => "error",
+        disable: () => {},
+      });
+
+      renderHome();
+      openMenu();
+
+      expect(screen.getByRole("button", { name: "Masquer le menu" })).not.toHaveClass("icon-btn--alert");
+      expect(screen.getByRole("button", { name: "Synchroniser mes grilles" })).not.toHaveClass("icon-btn--alert");
+      expect(screen.queryByRole("button", { name: /erreur de synchronisation/ })).not.toBeInTheDocument();
     });
   });
 });

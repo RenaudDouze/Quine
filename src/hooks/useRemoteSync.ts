@@ -9,8 +9,11 @@ export type JoinSyncCodeOutcome = "invalid" | "not-found" | "error" | "joined";
 const POLL_INTERVAL_MS = 20_000;
 // Laisse le temps à plusieurs changements rapprochés (ex: quelques clics de
 // suite) de se regrouper en une seule requête, plutôt que d'en envoyer une
-// par changement.
-const PUSH_DEBOUNCE_MS = 1_500;
+// par changement — le plan gratuit de Cloudflare KV plafonne à 1000
+// écritures/jour pour tout le worker (voir worker/README.md), un usage actif
+// avec des changements espacés de plus de quelques secondes peut sinon s'en
+// approcher.
+const PUSH_DEBOUNCE_MS = 5_000;
 
 export interface UseRemoteSyncResult {
   code: string | null;
@@ -177,9 +180,9 @@ export function useRemoteSync(
       setCode(newCode);
       setStatus("synced");
       return true;
-    } catch {
+    } catch (err) {
       setStatus("error");
-      setErrorMessage("Impossible de créer un code de synchronisation.");
+      setErrorMessage(err instanceof Error ? err.message : "Impossible de créer un code de synchronisation.");
       return false;
     }
   };
@@ -231,9 +234,9 @@ export function useRemoteSync(
       setCode(normalized);
       setStatus("synced");
       return "joined";
-    } catch {
+    } catch (err) {
       setStatus("error");
-      setErrorMessage("Impossible de rejoindre ce code.");
+      setErrorMessage(err instanceof Error ? err.message : "Impossible de rejoindre ce code.");
       return "error";
     }
   };

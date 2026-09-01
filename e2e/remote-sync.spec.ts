@@ -150,8 +150,13 @@ test.describe('Synchronisation via code (worker)', () => {
     // échouer proprement (statut d'erreur) plutôt que de planter l'app.
     await createGrid(page, { title: 'Hors ligne', items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] })
 
+    // Visible dès l'en-tête (bouton du menu), sans avoir ouvert le menu ni
+    // la modale Synchroniser : sinon rien n'indiquerait l'échec tant que
+    // l'utilisateur ne va pas voir la modale de lui-même.
+    await expect(page.getByRole('button', { name: /erreur de synchronisation/i })).toBeVisible({ timeout: 10_000 })
+
     await openMenu(page)
-    await page.getByRole('button', { name: 'Synchroniser mes grilles' }).click()
+    await page.getByRole('button', { name: 'Synchroniser mes grilles', exact: false }).click()
     await expect(page.getByText('Erreur de synchronisation')).toBeVisible()
     await page.getByRole('button', { name: 'Fermer' }).click()
 
@@ -162,8 +167,14 @@ test.describe('Synchronisation via code (worker)', () => {
     await page.locator('.grid-item').first().locator('.cell').first().click()
 
     await openMenu(page)
-    await page.getByRole('button', { name: 'Synchroniser mes grilles' }).click()
+    // Le libellé du bouton porte encore le suffixe d'erreur tant que la
+    // nouvelle poussée (déclenchée par le clic ci-dessus) n'a pas encore
+    // abouti : match partiel plutôt qu'exact.
+    await page.getByRole('button', { name: 'Synchroniser mes grilles', exact: false }).click()
     await expect(page.getByText('Synchronisé ✓')).toBeVisible({ timeout: 10_000 })
+    // Une fois synchronisé, le libellé revient à sa forme simple et
+    // l'indicateur d'alerte disparaît.
+    await expect(page.getByRole('button', { name: /erreur de synchronisation/i })).not.toBeVisible()
   })
 
   test('affiche une notification quand des grilles arrivent d’un autre appareil', async ({ page }) => {
@@ -182,7 +193,10 @@ test.describe('Synchronisation via code (worker)', () => {
     worker.setStored({ version: 2, grids: [mockGrid('a', 'Depuis un autre appareil')] })
     await page.locator('.grid-item').first().locator('.cell').first().click()
 
-    await expect(page.getByText('Grilles mises à jour depuis un autre appareil')).toBeVisible()
+    // La poussée déclenchée par ce changement local attend le délai de
+    // regroupement (5s, voir PUSH_DEBOUNCE_MS) avant de partir : le délai
+    // d'attente par défaut de Playwright (5s) ne laisserait aucune marge.
+    await expect(page.getByText('Grilles mises à jour depuis un autre appareil')).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('Depuis un autre appareil', { exact: true })).toBeVisible()
     expect(worker.current?.version).toBe(2)
   })

@@ -121,7 +121,7 @@ export default function ShareModal({
       setJoinInput("");
       return;
     }
-    setJoinError(JOIN_OUTCOME_ERROR[outcome]);
+    setJoinError(outcome === "error" && remoteSync!.errorMessage ? remoteSync!.errorMessage : JOIN_OUTCOME_ERROR[outcome]);
   }
 
   return (
@@ -180,6 +180,9 @@ export default function ShareModal({
                     Saisir un code
                   </button>
                 </div>
+                {remoteSync.status === "error" && (
+                  <p className="modal-error">{remoteSync.errorMessage ?? REMOTE_STATUS_LABEL.error}</p>
+                )}
               </>
             )}
             {joinError && <p className="modal-error">{joinError}</p>}
