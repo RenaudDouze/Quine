@@ -1,9 +1,11 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ComponentProps } from "react";
 import { buildCells, type Grid } from "../lib/bingo";
 import { loadGrids, saveGrids } from "../lib/storage";
 import { useRemoteSync } from "../hooks/useRemoteSync";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import HomeView from "./HomeView";
 
 vi.mock("qrcode", () => ({
@@ -23,12 +25,24 @@ vi.mock("../hooks/useRemoteSync", async () => {
 });
 const defaultUseRemoteSyncImpl = vi.mocked(useRemoteSync).getMockImplementation()!;
 
+// Enveloppe la vraie classe dans un composant fonction (délègue à elle par
+// défaut, donc n'affecte aucun autre test) : sert uniquement à simuler
+// directement le chemin "chunk introuvable" (voir le test dédié plus bas)
+// sans avoir à faire réellement échouer l'import() paresseux de ShareModal.
+vi.mock("../components/ErrorBoundary", async () => {
+  const actual = await vi.importActual<typeof import("../components/ErrorBoundary")>("../components/ErrorBoundary");
+  return {
+    ErrorBoundary: vi.fn((props: ComponentProps<typeof actual.ErrorBoundary>) => <actual.ErrorBoundary {...props} />),
+  };
+});
+const defaultErrorBoundaryImpl = vi.mocked(ErrorBoundary).getMockImplementation()!;
+
 function renderHome(props: Partial<Parameters<typeof HomeView>[0]> = {}) {
   const onThemePreferenceChange = vi.fn();
-  render(
+  const result = render(
     <HomeView themePreference="system" onThemePreferenceChange={onThemePreferenceChange} {...props} />
   );
-  return { onThemePreferenceChange };
+  return { onThemePreferenceChange, ...result };
 }
 
 function makeGrid(overrides: Partial<Grid> = {}): Grid {
@@ -924,6 +938,77 @@ describe("HomeView", () => {
       expect(screen.getByRole("button", { name: "Masquer le menu" })).not.toHaveClass("icon-btn--alert");
       expect(screen.getByRole("button", { name: "Synchroniser mes grilles" })).not.toHaveClass("icon-btn--alert");
       expect(screen.queryByRole("button", { name: /erreur de synchronisation/ })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("secours si un panneau chargé à la demande n'a pas pu se charger (chunk introuvable après un déploiement)", () => {
+    afterEach(() => {
+      vi.mocked(ErrorBoundary).mockImplementation(defaultErrorBoundaryImpl);
+    });
+
+    it("propose de recharger la page plutôt que de laisser une page blanche (modale de synchro)", async () => {
+      vi.mocked(ErrorBoundary).mockImplementation(({ fallback }) => fallback(() => {}));
+      const user = userEvent.setup();
+      renderHome();
+      openMenu();
+      await user.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
+
+      expect(screen.getByText("Synchroniser mes grilles", { selector: "h2" })).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Ce panneau n'a pas pu se charger — une nouvelle version de l'app est probablement disponible. Recharge la page pour la récupérer."
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('recharge la page au clic sur "Recharger la page"', async () => {
+      const reloadSpy = vi.fn();
+      vi.mocked(ErrorBoundary).mockImplementation(({ fallback }) => fallback(reloadSpy));
+      const user = userEvent.setup();
+      renderHome();
+      openMenu();
+      await user.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
+
+      fireEvent.click(screen.getByRole("button", { name: "Recharger la page" }));
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('referme le secours sans recharger au clic sur "Fermer"', async () => {
+      vi.mocked(ErrorBoundary).mockImplementation(({ fallback }) => fallback(() => {}));
+      const user = userEvent.setup();
+      renderHome();
+      openMenu();
+      await user.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
+
+      fireEvent.click(screen.getByRole("button", { name: "Fermer" }));
+      expect(screen.queryByText("Synchroniser mes grilles", { selector: "h2" })).not.toBeInTheDocument();
+    });
+
+    it("referme le secours au clic sur l'arrière-plan, sans que le clic sur le panneau lui-même ne le ferme", async () => {
+      vi.mocked(ErrorBoundary).mockImplementation(({ fallback }) => fallback(() => {}));
+      const user = userEvent.setup();
+      const { container } = renderHome();
+      openMenu();
+      await user.click(screen.getByRole("button", { name: "Synchroniser mes grilles" }));
+
+      fireEvent.click(container.querySelector(".modal-panel")!);
+      expect(screen.getByText("Synchroniser mes grilles", { selector: "h2" })).toBeInTheDocument();
+
+      fireEvent.click(container.querySelector(".modal-overlay")!);
+      expect(screen.queryByText("Synchroniser mes grilles", { selector: "h2" })).not.toBeInTheDocument();
+    });
+
+    it("montre le même secours pour le partage d'une seule grille, avec son propre titre et sa propre fermeture", async () => {
+      vi.mocked(ErrorBoundary).mockImplementation(({ fallback }) => fallback(() => {}));
+      saveGrids([makeGrid({ title: "Grille à partager" })]);
+      const user = userEvent.setup();
+      renderHome();
+      await user.click(screen.getByRole("button", { name: "Partager" }));
+
+      expect(screen.getByText('Partager "Grille à partager"', { selector: "h2" })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Fermer" }));
+      expect(screen.queryByText('Partager "Grille à partager"', { selector: "h2" })).not.toBeInTheDocument();
     });
   });
 });
