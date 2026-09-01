@@ -59,10 +59,27 @@ async function readJsonOrThrow(response: Response): Promise<unknown> {
   }
 }
 
+/** Construit le message d'une requête en échec : ajoute le détail renvoyé
+ * par le worker (voir `detail` dans sa réponse d'erreur générique — la seule
+ * information de diagnostic disponible sur un appareil sans accès à la
+ * console, ex : mobile) au message générique `fallback` quand il est
+ * exploitable, sinon retombe silencieusement sur `fallback` seul (corps
+ * vide ou illisible : la requête a par exemple échoué avant que le worker ne
+ * réponde). */
+async function errorMessageFor(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await response.json()) as { detail?: unknown };
+    if (typeof body.detail === "string" && body.detail) return `${fallback} (${body.detail})`;
+  } catch {
+    // Pas de corps JSON exploitable : le message générique suffit.
+  }
+  return fallback;
+}
+
 /** Demande un nouveau code de synchronisation au worker. */
 export async function createSyncCode(workerUrl: string): Promise<string> {
   const response = await fetch(`${workerUrl}/api/sync`, { method: "POST" });
-  if (!response.ok) throw new Error("Impossible de créer un code de synchronisation.");
+  if (!response.ok) throw new Error(await errorMessageFor(response, "Impossible de créer un code de synchronisation."));
   const body = (await readJsonOrThrow(response)) as { code: string };
   return body.code;
 }
@@ -72,7 +89,8 @@ export async function createSyncCode(workerUrl: string): Promise<string> {
 export async function fetchSyncState(workerUrl: string, code: string): Promise<SyncState | null> {
   const response = await fetch(`${workerUrl}/api/sync/${code}`);
   if (response.status === 404) return null;
-  if (!response.ok) throw new Error("Impossible de récupérer les grilles synchronisées.");
+  if (!response.ok)
+    throw new Error(await errorMessageFor(response, "Impossible de récupérer les grilles synchronisées."));
   return (await readJsonOrThrow(response)) as SyncState;
 }
 
@@ -93,6 +111,6 @@ export async function pushSyncState(workerUrl: string, code: string, push: PushR
     body: JSON.stringify(push),
   });
   if (response.status === 409) return { accepted: false, state: (await readJsonOrThrow(response)) as SyncState };
-  if (!response.ok) throw new Error("Impossible de synchroniser les grilles.");
+  if (!response.ok) throw new Error(await errorMessageFor(response, "Impossible de synchroniser les grilles."));
   return { accepted: true, state: (await readJsonOrThrow(response)) as SyncState };
 }

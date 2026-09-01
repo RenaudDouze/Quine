@@ -454,6 +454,36 @@ describe("ShareModal", () => {
         expect(screen.getByText(message)).toBeInTheDocument();
       });
 
+      it("préfère le message d'erreur précis du hook au message générique quand il est disponible", async () => {
+        const joinCode = vi.fn().mockResolvedValue("error");
+        const remoteSync = makeRemoteSync({ joinCode, errorMessage: "Failed to fetch" });
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Saisir un code" }));
+        fireEvent.change(screen.getByPlaceholderText("XXXX XXXX"), { target: { value: "abcdefgh" } });
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name: "Rejoindre" }));
+        });
+        expect(screen.getByText("Failed to fetch")).toBeInTheDocument();
+        expect(screen.queryByText("Impossible de rejoindre ce code, réessaie.")).not.toBeInTheDocument();
+      });
+
+      it("affiche l'échec de « Nouveau code » alors qu'aucun code n'est encore actif", () => {
+        const remoteSync = makeRemoteSync({
+          status: "error",
+          errorMessage: "Impossible de créer un code de synchronisation.",
+        });
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        expect(screen.getByText("Impossible de créer un code de synchronisation.")).toBeInTheDocument();
+        // Toujours proposé pour réessayer.
+        expect(screen.getByRole("button", { name: "Nouveau code" })).toBeInTheDocument();
+      });
+
+      it("retombe sur le message générique si « Nouveau code » échoue sans détail", () => {
+        const remoteSync = makeRemoteSync({ status: "error", errorMessage: null });
+        render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);
+        expect(screen.getByText("Erreur de synchronisation")).toBeInTheDocument();
+      });
+
       it("affiche le code actif formaté et le bouton de déconnexion", () => {
         const remoteSync = makeRemoteSync({ code: "ABCDEFGH", status: "syncing" });
         render(<ShareModal {...defaultProps} grids={[]} remoteSync={remoteSync} onClose={vi.fn()} />);

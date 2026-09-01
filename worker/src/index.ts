@@ -33,38 +33,16 @@ const MAX_BODY_BYTES = 256 * 1024;
 // indéfiniment dans le stockage.
 const KV_TTL_SECONDS = 60 * 60 * 24 * 180;
 
-// Fenêtre fixe par IP : à défaut d'Object Durable (non provisionné dans ce
-// projet, juste un espace KV), un compteur en KV par IP/fenêtre suffit à
-// dissuader un abus scripté (création de codes ou poussées en boucle) sans
-// gêner un usage normal — le sondage côté client (useRemoteSync.ts) tourne
-// toutes les 20s, largement sous ce seuil même en comptant les poussées
-// ponctuelles.
-export const RATE_LIMIT_WINDOW_SECONDS = 60;
-export const RATE_LIMIT_MAX_REQUESTS = 60;
-
-/** Cloudflare pose toujours cet en-tête sur les requêtes qui atteignent le
- * worker (absent seulement hors de ce runtime, ex : tests) : une IP absente
- * retombe sur un compartiment commun plutôt que d'échouer. */
-function clientIp(request: Request): string {
-  return request.headers.get("CF-Connecting-IP") ?? "unknown";
-}
-
-/** `true` si `ip` a déjà atteint son quota de requêtes pour la fenêtre en
- * cours. Compteur best-effort : la paire lecture-puis-écriture n'est pas
- * atomique (deux requêtes concurrentes peuvent toutes deux lire le même
- * compte avant d'écrire), un léger dépassement reste possible sous forte
- * concurrence — acceptable pour de la dissuasion d'abus, pas une garantie
- * stricte de facturation. */
-async function isRateLimited(env: Env, ip: string): Promise<boolean> {
-  const windowStart = Math.floor(Date.now() / 1000 / RATE_LIMIT_WINDOW_SECONDS) * RATE_LIMIT_WINDOW_SECONDS;
-  const key = `ratelimit:${ip}:${windowStart}`;
-  const current = Number((await env.SYNC_KV.get(key)) ?? "0");
-  if (current >= RATE_LIMIT_MAX_REQUESTS) return true;
-  // expirationTtl minimal de Cloudflare KV : 60s, toujours atteint ici même
-  // pour une fenêtre plus courte.
-  await env.SYNC_KV.put(key, String(current + 1), { expirationTtl: RATE_LIMIT_WINDOW_SECONDS + 5 });
-  return false;
-}
+// Pas de limitation de débit ici (essayée puis retirée) : le plan gratuit de
+// Cloudflare KV plafonne à 1000 écritures/jour pour tout le namespace, tous
+// clients confondus. Un compteur par IP/fenêtre écrit en KV à chaque requête
+// (même les lectures) épuise ce quota en quelques heures avec un seul
+// appareil qui sonde toutes les 20s (voir useRemoteSync.ts) — bien avant
+// qu'aucun abus n'ait eu lieu. Une fois le quota épuisé, même les écritures
+// légitimes (créer/pousser) échouent, jusqu'à la réinitialisation à minuit
+// UTC : pire que l'abus que ça visait à empêcher. Un vrai rate-limiting
+// referait sens avec un Object Durable (pas provisionné dans ce projet), qui
+// ne consomme pas ce quota.
 
 export function kvKey(code: string): string {
   return `sync:${code}`;
@@ -167,40 +145,52 @@ async function handlePut(request: Request, env: Env, code: string): Promise<Resp
   return json(next, { status: 200 }, env);
 }
 
+async function route(request: Request, env: Env): Promise<Response> {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(env) });
+  }
+
+  const url = new URL(request.url);
+  const segments = url.pathname.split("/").filter(Boolean);
+
+  if (segments[0] !== "api" || segments[1] !== "sync") {
+    return json({ error: "Not found" }, { status: 404 }, env);
+  }
+
+  if (segments.length === 2) {
+    if (request.method !== "POST") return json({ error: "Method not allowed" }, { status: 405 }, env);
+    return handleCreate(env);
+  }
+
+  if (segments.length === 3) {
+    const code = normalizeSyncCode(segments[2]);
+    if (!isValidSyncCode(code)) return json({ error: "Code invalide." }, { status: 400 }, env);
+    if (request.method === "GET") return handleGet(env, code);
+    if (request.method === "PUT") return handlePut(request, env, code);
+    return json({ error: "Method not allowed" }, { status: 405 }, env);
+  }
+
+  return json({ error: "Not found" }, { status: 404 }, env);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(env) });
-    }
-
-    if (await isRateLimited(env, clientIp(request))) {
+    try {
+      return await route(request, env);
+    } catch (err) {
+      // Une exception non rattrapée ici (ex : liaison KV mal configurée)
+      // laisserait le runtime Cloudflare renvoyer sa propre page d'erreur
+      // générique (code 1101), sans les en-têtes CORS posés par `json()` —
+      // un navigateur rejette alors la réponse comme une simple erreur
+      // réseau côté client ("NetworkError"/"Failed to fetch"), sans aucun
+      // détail exploitable. Répondre nous-mêmes garde les en-têtes CORS et
+      // expose la vraie cause, seule information de diagnostic disponible
+      // sur un appareil sans accès à la console (ex : mobile).
       return json(
-        { error: "Trop de requêtes, réessaie dans un instant." },
-        { status: 429, headers: { "Retry-After": String(RATE_LIMIT_WINDOW_SECONDS) } },
+        { error: "Erreur interne du serveur.", detail: err instanceof Error ? err.message : String(err) },
+        { status: 500 },
         env
       );
     }
-
-    const url = new URL(request.url);
-    const segments = url.pathname.split("/").filter(Boolean);
-
-    if (segments[0] !== "api" || segments[1] !== "sync") {
-      return json({ error: "Not found" }, { status: 404 }, env);
-    }
-
-    if (segments.length === 2) {
-      if (request.method !== "POST") return json({ error: "Method not allowed" }, { status: 405 }, env);
-      return handleCreate(env);
-    }
-
-    if (segments.length === 3) {
-      const code = normalizeSyncCode(segments[2]);
-      if (!isValidSyncCode(code)) return json({ error: "Code invalide." }, { status: 400 }, env);
-      if (request.method === "GET") return handleGet(env, code);
-      if (request.method === "PUT") return handlePut(request, env, code);
-      return json({ error: "Method not allowed" }, { status: 405 }, env);
-    }
-
-    return json({ error: "Not found" }, { status: 404 }, env);
   },
 };

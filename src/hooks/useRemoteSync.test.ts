@@ -101,7 +101,7 @@ describe("useRemoteSync", () => {
       });
     });
 
-    it("signale une erreur si la création échoue côté serveur", async () => {
+    it("signale une erreur si la création échoue côté serveur, avec le détail de la cause", async () => {
       vi.mocked(createSyncCode).mockRejectedValue(new Error("boom"));
       const { result } = renderHook(() => useHost(WORKER_URL, []));
 
@@ -112,8 +112,22 @@ describe("useRemoteSync", () => {
 
       expect(outcome).toBe(false);
       expect(result.current.sync.status).toBe("error");
-      expect(result.current.sync.errorMessage).toContain("Impossible de créer");
+      // Le message de l'erreur d'origine est préservé (pas un texte
+      // générique) : c'est la seule information de diagnostic disponible sur
+      // un appareil sans accès à la console (ex : mobile).
+      expect(result.current.sync.errorMessage).toBe("boom");
       expect(result.current.sync.code).toBeNull();
+    });
+
+    it("retombe sur un message générique si l'échec n'est pas une Error", async () => {
+      vi.mocked(createSyncCode).mockRejectedValue("boom");
+      const { result } = renderHook(() => useHost(WORKER_URL, []));
+
+      await act(async () => {
+        await result.current.sync.createCode();
+      });
+
+      expect(result.current.sync.errorMessage).toBe("Impossible de créer un code de synchronisation.");
     });
   });
 
@@ -219,7 +233,7 @@ describe("useRemoteSync", () => {
       expect(result.current.grids).toEqual(serverGrids);
     });
 
-    it("signale une erreur si la requête réseau échoue", async () => {
+    it("signale une erreur si la requête réseau échoue, avec le détail de la cause", async () => {
       vi.mocked(fetchSyncState).mockRejectedValue(new Error("boom"));
       const { result } = renderHook(() => useHost(WORKER_URL, []));
       let outcome: string | undefined;
@@ -227,7 +241,16 @@ describe("useRemoteSync", () => {
         outcome = await result.current.sync.joinCode("ABCDEFGH");
       });
       expect(outcome).toBe("error");
-      expect(result.current.sync.errorMessage).toContain("Impossible de rejoindre");
+      expect(result.current.sync.errorMessage).toBe("boom");
+    });
+
+    it("retombe sur un message générique si l'échec n'est pas une Error", async () => {
+      vi.mocked(fetchSyncState).mockRejectedValue("boom");
+      const { result } = renderHook(() => useHost(WORKER_URL, []));
+      await act(async () => {
+        await result.current.sync.joinCode("ABCDEFGH");
+      });
+      expect(result.current.sync.errorMessage).toBe("Impossible de rejoindre ce code.");
     });
   });
 
@@ -463,7 +486,7 @@ describe("useRemoteSync", () => {
         result.current.setGrids(edited);
       });
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(1_500);
+        await vi.advanceTimersByTimeAsync(5_000);
       });
 
       expect(pushSyncState).toHaveBeenCalledWith(WORKER_URL, "ABCDEFGH", {
@@ -495,7 +518,7 @@ describe("useRemoteSync", () => {
         result.current.setGrids([makeGrid({ title: "Deux" })]);
       });
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(1_500);
+        await vi.advanceTimersByTimeAsync(5_000);
       });
 
       expect(pushSyncState).toHaveBeenCalledTimes(1);
@@ -518,7 +541,7 @@ describe("useRemoteSync", () => {
         result.current.setGrids([makeGrid({ title: "Modifiée" })]);
       });
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(1_500);
+        await vi.advanceTimersByTimeAsync(5_000);
       });
 
       expect(result.current.grids).toEqual(serverGrids);
@@ -545,7 +568,7 @@ describe("useRemoteSync", () => {
         result.current.setGrids([makeGrid({ title: "Modifiée" })]);
       });
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(1_500);
+        await vi.advanceTimersByTimeAsync(5_000);
       });
 
       expect(onRemoteUpdate).toHaveBeenCalledTimes(1);
@@ -564,7 +587,7 @@ describe("useRemoteSync", () => {
         result.current.setGrids([makeGrid({ title: "Modifiée" })]);
       });
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(1_500);
+        await vi.advanceTimersByTimeAsync(5_000);
       });
 
       expect(result.current.sync.status).toBe("error");

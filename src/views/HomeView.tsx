@@ -238,7 +238,13 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
 
   // Calculés une fois pour servir à la fois d'aria-label et d'infobulle sur
   // leur bouton respectif, comme dans +1.
-  const menuButtonLabel = menuOpen ? "Masquer le menu" : "Ouvrir le menu";
+  // Signale une erreur de synchro dès l'en-tête (bouton menu) et sur le
+  // bouton Synchroniser dans le menu déroulant : sans ça, rien ne
+  // l'indiquait en dehors de la modale Synchroniser elle-même, qu'il faut
+  // donc ouvrir "à l'aveugle" pour découvrir qu'un souci existe.
+  const hasSyncError = remoteSync.status === "error";
+  const menuButtonLabel = `${menuOpen ? "Masquer le menu" : "Ouvrir le menu"}${hasSyncError ? " (erreur de synchronisation)" : ""}`;
+  const syncButtonLabel = `Synchroniser mes grilles${hasSyncError ? " (erreur de synchronisation)" : ""}`;
   const archiveViewLabel =
     archiveView === "archived"
       ? `Vue : Archivées (${archivedCount})`
@@ -267,7 +273,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
                 + Nouvelle grille
               </button>
               <button
-                className="icon-btn"
+                className={`icon-btn${hasSyncError ? " icon-btn--alert" : ""}`}
                 onClick={() => setMenuOpen((v) => !v)}
                 aria-haspopup="true"
                 aria-expanded={menuOpen}
@@ -305,13 +311,13 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
                   {THEME_ICON[themePreference]}
                 </button>
                 <button
-                  className="icon-btn"
+                  className={`icon-btn${hasSyncError ? " icon-btn--alert" : ""}`}
                   onClick={() => {
                     setSyncOpen(true);
                     setMenuOpen(false);
                   }}
-                  aria-label="Synchroniser mes grilles"
-                  title="Synchroniser mes grilles"
+                  aria-label={syncButtonLabel}
+                  title={syncButtonLabel}
                 >
                   ⇄
                 </button>

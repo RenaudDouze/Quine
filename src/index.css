@@ -183,6 +183,7 @@ button {
   box-shadow: none;
 }
 .icon-btn {
+  position: relative;
   border: 1px solid var(--surface-border);
   background: var(--surface);
   padding: 10px 14px;
@@ -197,6 +198,20 @@ button {
 }
 .icon-btn:active {
   transform: scale(0.95);
+}
+
+/* Signale une erreur de synchro sans avoir à ouvrir le menu puis la modale
+   Synchroniser pour s'en apercevoir (visible dès l'en-tête). */
+.icon-btn--alert::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  border: 1.5px solid var(--surface);
 }
 
 /* Mode plein écran (PlayView) */
