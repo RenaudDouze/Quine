@@ -7,8 +7,16 @@ import { now } from "./time";
  * (état complet, cases cochées comprises — pour restaurer sur un autre appareil). */
 export function downloadBackup(grids: Grid[]) {
   const blob = new Blob([JSON.stringify(grids, null, 2)], { type: "application/json" });
-  const date = new Date().toISOString().slice(0, 10);
-  triggerDownload(blob, `bingo-sauvegarde-${date}.json`);
+  // Horodatage complet (pas seulement la date) : plusieurs sauvegardes le même
+  // jour ne s'écrasent plus entre elles dans le dossier de téléchargements.
+  // Composants locaux (getFullYear/getHours...), pas toISOString() : celle-ci
+  // convertit en UTC, décalant l'heure affichée par rapport à l'heure de
+  // l'appareil. ':' n'est pas valide dans un nom de fichier sous Windows,
+  // d'où le tiret.
+  const date = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const timestamp = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+  triggerDownload(blob, `bingo-sauvegarde-${timestamp}.json`);
 }
 
 function isValidGrid(value: unknown): value is Partial<Grid> {

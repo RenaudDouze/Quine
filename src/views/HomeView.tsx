@@ -9,6 +9,7 @@ import { loadGrids, saveGrids, uid } from "../lib/storage";
 import { now } from "../lib/time";
 import { navigate } from "../hooks/useHashRoute";
 import { useRemoteSync } from "../hooks/useRemoteSync";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 // Chargé à la demande : n'entre dans le bundle initial que si une modale de
 // partage/synchronisation est effectivement ouverte (embarque la dépendance
@@ -25,6 +26,36 @@ const NEXT_ARCHIVE_VIEW: Record<ArchiveView, ArchiveView> = { active: "archived"
 
 const UNDO_TIMEOUT_MS = 5000;
 const SYNC_NOTICE_TIMEOUT_MS = 4000;
+
+// Secours si `ShareModal` (chargé à la demande, voir `ShareModal` ci-dessus)
+// échoue à charger : le cas le plus probable est un onglet resté ouvert
+// depuis avant un déploiement, qui référence encore un chunk JS supprimé
+// (noms de fichiers hashés par Vite, anciens hashs jamais conservés côté
+// GitHub Pages). `Suspense` seul ne rattrape que l'attente du chunk, pas son
+// échec — voir ErrorBoundary.tsx.
+function chunkLoadFailedFallback(heading: string, onClose: () => void) {
+  return (retry: () => void) => (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-panel-header">
+          <h2>{heading}</h2>
+        </div>
+        <p className="modal-hint">
+          Ce panneau n'a pas pu se charger — une nouvelle version de l'app est probablement disponible. Recharge la
+          page pour la récupérer.
+        </p>
+        <div className="modal-row">
+          <button className="modal-btn" onClick={retry}>
+            Recharger la page
+          </button>
+          <button className="modal-btn" onClick={onClose}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface Props {
   themePreference: ThemePreference;
@@ -403,32 +434,38 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
       )}
 
       {syncOpen && (
-        <Suspense fallback={null}>
-          <ShareModal
-            grids={grids}
-            heading="Synchroniser mes grilles"
-            hint="Scanne ce QR code depuis l'autre appareil, ou copie le lien."
-            emptyHint="Ajoute au moins une grille pour générer un QR code."
-            qrAlt="QR code de mes grilles"
-            showJsonBackup
-            onImport={handleImport}
-            onClose={() => setSyncOpen(false)}
-            remoteSync={remoteSync}
-          />
-        </Suspense>
+        <ErrorBoundary fallback={chunkLoadFailedFallback("Synchroniser mes grilles", () => setSyncOpen(false))}>
+          <Suspense fallback={null}>
+            <ShareModal
+              grids={grids}
+              heading="Synchroniser mes grilles"
+              hint="Scanne ce QR code depuis l'autre appareil, ou copie le lien."
+              emptyHint="Ajoute au moins une grille pour générer un QR code."
+              qrAlt="QR code de mes grilles"
+              showJsonBackup
+              onImport={handleImport}
+              onClose={() => setSyncOpen(false)}
+              remoteSync={remoteSync}
+            />
+          </Suspense>
+        </ErrorBoundary>
       )}
 
       {shareTarget && (
-        <Suspense fallback={null}>
-          <ShareModal
-            grids={[shareTarget]}
-            heading={`Partager "${shareTarget.title}"`}
-            hint="Scanne ce QR code, ou copie le lien pour que quelqu'un d'autre récupère cette grille."
-            emptyHint="Impossible de générer un QR code."
-            qrAlt={`QR code de la grille ${shareTarget.title}`}
-            onClose={() => setShareTarget(null)}
-          />
-        </Suspense>
+        <ErrorBoundary
+          fallback={chunkLoadFailedFallback(`Partager "${shareTarget.title}"`, () => setShareTarget(null))}
+        >
+          <Suspense fallback={null}>
+            <ShareModal
+              grids={[shareTarget]}
+              heading={`Partager "${shareTarget.title}"`}
+              hint="Scanne ce QR code, ou copie le lien pour que quelqu'un d'autre récupère cette grille."
+              emptyHint="Impossible de générer un QR code."
+              qrAlt={`QR code de la grille ${shareTarget.title}`}
+              onClose={() => setShareTarget(null)}
+            />
+          </Suspense>
+        </ErrorBoundary>
       )}
 
       {customizeTarget && (

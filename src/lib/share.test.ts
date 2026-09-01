@@ -56,7 +56,7 @@ describe("downloadBackup", () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 7, 22));
+    vi.setSystemTime(new Date(2026, 7, 22, 14, 5, 9));
     clickSpy = vi.fn();
     lastAnchor = null;
     const originalCreateElement = document.createElement.bind(document);
@@ -91,10 +91,14 @@ describe("downloadBackup", () => {
     expect(JSON.parse(text)).toEqual(grids);
   });
 
-  it("déclenche le téléchargement avec un nom de fichier daté", () => {
+  it("déclenche le téléchargement avec un nom de fichier daté et horodaté", () => {
     downloadBackup([makeGrid()]);
     expect(clickSpy).toHaveBeenCalledTimes(1);
-    expect(lastAnchor?.download).toBe("bingo-sauvegarde-2026-08-22.json");
+  });
+
+  it("nomme le fichier avec la date et l'heure du jour (pour ne pas écraser une sauvegarde précédente le même jour)", () => {
+    downloadBackup([makeGrid()]);
+    expect(lastAnchor?.download).toBe("bingo-sauvegarde-2026-08-22_14-05-09.json");
   });
 
   it("révoque l'URL objet après le téléchargement", () => {
