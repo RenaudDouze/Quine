@@ -156,12 +156,12 @@ describe("parseBackupJson", () => {
     expect(result?.[0].id).toBeTruthy();
   });
 
-  it('remplace un titre vide ou blanc par "Grille de bingo"', () => {
+  it('remplace un titre vide ou blanc par "Grille de Quine"', () => {
     expect(parseBackupJson(JSON.stringify([{ title: "", size: 3, items: [] }]))?.[0].title).toBe(
-      "Grille de bingo"
+      "Grille de Quine"
     );
     expect(parseBackupJson(JSON.stringify([{ title: "   ", size: 3, items: [] }]))?.[0].title).toBe(
-      "Grille de bingo"
+      "Grille de Quine"
     );
   });
 

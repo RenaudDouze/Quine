@@ -33,7 +33,7 @@ export default function CustomizeModal({
   const locked = !!grid.archived;
 
   function commitTitle() {
-    const trimmed = draftTitle.trim() || "Grille de bingo";
+    const trimmed = draftTitle.trim() || "Grille de Quine";
     setDraftTitle(trimmed);
     onUpdate({ title: trimmed });
   }

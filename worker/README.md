@@ -1,4 +1,4 @@
-# Worker de synchronisation Bingo
+# Worker de synchronisation Quine
 
 Petit service Cloudflare Worker qui sert de relais entre tes appareils : chacun
 pousse et récupère un instantané JSON de ses grilles, identifié par un code
@@ -39,7 +39,7 @@ Déploie :
 npm run deploy
 ```
 
-Wrangler affiche l'URL du worker déployé (`https://bingo-sync.<ton-compte>.workers.dev`).
+Wrangler affiche l'URL du worker déployé (`https://quine-sync.<ton-compte>.workers.dev`).
 Renseigne-la dans l'app via la variable d'environnement `VITE_SYNC_WORKER_URL`
 au moment du build (voir le `README.md` racine et le workflow de déploiement
 GitHub Pages) — sans elle, la section « Code de synchro » de la modale

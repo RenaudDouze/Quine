@@ -1,4 +1,4 @@
-name = "bingo-sync"
+name = "quine-sync"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 
@@ -12,7 +12,7 @@ id = "fb16cc6cd93a424a8c49079fa88e985d"
 # "https://tonpseudo.github.io") plutôt que d'accepter n'importe quel site.
 # Laisse "*" si tu ne sais pas encore sur quel domaine l'app sera servie.
 # Schéma + hôte uniquement, sans chemin ni slash final (une page GitHub Pages
-# de projet vit sous un chemin, ex. "https://tonpseudo.github.io/bingo",
+# de projet vit sous un chemin, ex. "https://tonpseudo.github.io/quine",
 # mais l'origine du navigateur — ce que le worker doit comparer — ne
 # contient jamais ce chemin). Le worker normalise cette valeur au
 # déploiement (voir `normalizedAllowedOrigin` dans src/index.ts) au cas où,

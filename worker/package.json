@@ -1,5 +1,5 @@
 {
-  "name": "bingo-sync-worker",
+  "name": "quine-sync-worker",
   "private": true,
   "version": "0.0.0",
   "type": "module",

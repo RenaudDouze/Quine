@@ -317,7 +317,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
       {!focusMode && (
         <>
           <header className="topbar">
-            <h1>Bingo</h1>
+            <h1>Quine</h1>
             <div className="topbar-actions">
               <button className="btn btn-chrome" onClick={() => navigate("editor")}>
                 + Nouvelle grille
