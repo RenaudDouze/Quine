@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { buildCells, type Grid } from "../lib/bingo";
 import { now } from "../lib/time";
 import GridForm, { type GridFormValues } from "./GridForm";
+import { CloseIcon } from "./icons";
 
 interface Props {
   grid: Grid;
@@ -37,7 +38,7 @@ export default function EditModal({ grid, onClose, onSave }: Props) {
         <div className="modal-panel-header">
           <h2>Modifier « {grid.title} »</h2>
           <button className="modal-close" onClick={onClose} aria-label="Fermer">
-            ✕
+            <CloseIcon />
           </button>
         </div>
 

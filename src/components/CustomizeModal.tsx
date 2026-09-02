@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { COLORS } from "../lib/colors";
 import type { Grid } from "../lib/bingo";
 import { isValidImageUrl } from "../lib/url";
+import { CloseIcon } from "./icons";
 
 interface Props {
   grid: Grid;
@@ -102,7 +103,7 @@ export default function CustomizeModal({
         <div className="modal-panel-header">
           <h2>Personnaliser « {grid.title} »</h2>
           <button className="modal-close" onClick={onClose} aria-label="Fermer">
-            ✕
+            <CloseIcon />
           </button>
         </div>
 
@@ -173,7 +174,7 @@ export default function CustomizeModal({
                 onClick={clearBackground}
                 aria-label="Vider l'image de fond"
               >
-                ✕
+                <CloseIcon />
               </button>
             )}
           </div>
