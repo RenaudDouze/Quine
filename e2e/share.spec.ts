@@ -18,7 +18,7 @@ test('shares a single grid via a link that a fresh session can import', async ({
 
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await page.getByText('Copier le lien').click()
-  await expect(page.getByText('Lien copié ✓')).toBeVisible()
+  await expect(page.getByText('Lien copié')).toBeVisible()
   const shareUrl = await page.evaluate(() => navigator.clipboard.readText())
   expect(shareUrl).toContain('?import=')
 

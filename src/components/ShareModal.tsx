@@ -6,7 +6,7 @@ import { printGrid } from "../lib/print";
 import { formatSyncCode } from "../lib/remoteSync";
 import { buildShareUrl, downloadBackup, parseBackupJson } from "../lib/share";
 import type { UseRemoteSyncResult } from "../hooks/useRemoteSync";
-import { CloseIcon } from "./icons";
+import { CheckIcon, CloseIcon, ImageIcon, PrintIcon, ShareIcon } from "./icons";
 
 interface Props {
   grids: Grid[];
@@ -199,7 +199,15 @@ export default function ShareModal({
           )}
           {shareUrl && (
             <button className="modal-btn" onClick={copyLink}>
-              {copied ? "Lien copié ✓" : "Copier le lien"}
+              {copied ? (
+                <>
+                  <CheckIcon width={16} height={16} /> Lien copié
+                </>
+              ) : (
+                <>
+                  <ShareIcon width={16} height={16} /> Copier le lien
+                </>
+              )}
             </button>
           )}
         </section>
@@ -208,10 +216,10 @@ export default function ShareModal({
           <section className="modal-section">
             <div className="modal-row">
               <button className="modal-btn" onClick={() => downloadGridSvg(grids[0])}>
-                🖼️ Exporter en image
+                <ImageIcon width={16} height={16} /> Exporter en image
               </button>
               <button className="modal-btn" onClick={() => printGrid(grids[0].id)}>
-                🖨️ Imprimer
+                <PrintIcon width={16} height={16} /> Imprimer
               </button>
             </div>
           </section>
