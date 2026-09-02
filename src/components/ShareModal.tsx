@@ -6,6 +6,7 @@ import { printGrid } from "../lib/print";
 import { formatSyncCode } from "../lib/remoteSync";
 import { buildShareUrl, downloadBackup, parseBackupJson } from "../lib/share";
 import type { UseRemoteSyncResult } from "../hooks/useRemoteSync";
+import { CloseIcon } from "./icons";
 
 interface Props {
   grids: Grid[];
@@ -130,7 +131,7 @@ export default function ShareModal({
         <div className="modal-panel-header">
           <h2>{heading}</h2>
           <button className="modal-close" onClick={onClose} aria-label="Fermer">
-            ✕
+            <CloseIcon />
           </button>
         </div>
 

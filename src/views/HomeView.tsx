@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { Reorder } from "framer-motion";
 import type { ThemePreference } from "../App";
 import CustomizeModal from "../components/CustomizeModal";
@@ -10,18 +10,35 @@ import { now } from "../lib/time";
 import { navigate } from "../hooks/useHashRoute";
 import { useRemoteSync } from "../hooks/useRemoteSync";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import {
+  ArchiveIcon,
+  CloseIcon,
+  EyeIcon,
+  FullscreenIcon,
+  MoonIcon,
+  MoreIcon,
+  SearchIcon,
+  SunIcon,
+  SyncIcon,
+  ThemeAutoIcon,
+  type IconProps,
+} from "../components/icons";
 
 // Chargé à la demande : n'entre dans le bundle initial que si une modale de
 // partage/synchronisation est effectivement ouverte (embarque la dépendance
 // qrcode), comme SyncPanel dans +1.
 const ShareModal = lazy(() => import("../components/ShareModal"));
 
-const THEME_ICON: Record<ThemePreference, string> = { system: "🌓", light: "☀️", dark: "🌙" };
+const THEME_ICON: Record<ThemePreference, ComponentType<IconProps>> = {
+  system: ThemeAutoIcon,
+  light: SunIcon,
+  dark: MoonIcon,
+};
 const THEME_LABEL: Record<ThemePreference, string> = { system: "Auto", light: "Clair", dark: "Sombre" };
 const NEXT_THEME: Record<ThemePreference, ThemePreference> = { system: "light", light: "dark", dark: "system" };
 
 type ArchiveView = "active" | "archived";
-const ARCHIVE_VIEW_ICON: Record<ArchiveView, string> = { active: "📂", archived: "📦" };
+const ARCHIVE_VIEW_ICON: Record<ArchiveView, ComponentType<IconProps>> = { active: EyeIcon, archived: ArchiveIcon };
 const NEXT_ARCHIVE_VIEW: Record<ArchiveView, ArchiveView> = { active: "archived", archived: "active" };
 
 const UNDO_TIMEOUT_MS = 5000;
@@ -282,6 +299,8 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
       : archivedCount > 0
         ? `Vue : Actives (${archivedCount} archivée(s))`
         : "Vue : Actives";
+  const ThemeIcon = THEME_ICON[themePreference];
+  const ArchiveViewIcon = ARCHIVE_VIEW_ICON[archiveView];
 
   return (
     <>
@@ -291,7 +310,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
           onClick={() => setFocusMode(false)}
           aria-label="Quitter le mode plein écran"
         >
-          ✕
+          <CloseIcon />
         </button>
       )}
 
@@ -311,7 +330,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
                 aria-label={menuButtonLabel}
                 title={menuButtonLabel}
               >
-                ⋯
+                <MoreIcon />
               </button>
             </div>
 
@@ -327,7 +346,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
                     aria-label="Rechercher"
                     title="Rechercher"
                   >
-                    🔍
+                    <SearchIcon />
                   </button>
                 )}
                 <button
@@ -339,7 +358,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
                   aria-label={`Thème : ${THEME_LABEL[themePreference]}`}
                   title={`Thème : ${THEME_LABEL[themePreference]}`}
                 >
-                  {THEME_ICON[themePreference]}
+                  <ThemeIcon />
                 </button>
                 <button
                   className={`icon-btn${hasSyncError ? " icon-btn--alert" : ""}`}
@@ -350,7 +369,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
                   aria-label={syncButtonLabel}
                   title={syncButtonLabel}
                 >
-                  ⇄
+                  <SyncIcon />
                 </button>
                 {grids.length > 0 && (
                   <button
@@ -362,7 +381,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
                     aria-label="Mode plein écran"
                     title="Mode plein écran"
                   >
-                    ⛶
+                    <FullscreenIcon />
                   </button>
                 )}
                 <button
@@ -374,7 +393,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
                   aria-label={archiveViewLabel}
                   title={archiveViewLabel}
                 >
-                  {ARCHIVE_VIEW_ICON[archiveView]}
+                  <ArchiveViewIcon />
                 </button>
               </div>
             )}
@@ -393,7 +412,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
                 }}
               />
               <button className="modal-close" onClick={closeSearch} aria-label="Fermer la recherche">
-                ✕
+                <CloseIcon />
               </button>
             </div>
           )}

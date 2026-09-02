@@ -119,12 +119,12 @@ describe("GridCard", () => {
 
   it("shows a pin badge when the grid is pinned", () => {
     renderCard({ pinned: true });
-    expect(screen.getByText("📌")).toBeInTheDocument();
+    expect(screen.getByLabelText("Épinglée")).toBeInTheDocument();
   });
 
   it("does not show a pin badge when the grid is not pinned", () => {
     renderCard({ pinned: false });
-    expect(screen.queryByText("📌")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Épinglée")).not.toBeInTheDocument();
   });
 
   it("renders a background image layer when backgroundImageUrl is set", () => {

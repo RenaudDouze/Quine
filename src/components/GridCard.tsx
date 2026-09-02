@@ -1,6 +1,7 @@
 import { Reorder, useDragControls } from "framer-motion";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { checkWin, WIN_RULES, type Grid } from "../lib/bingo";
+import { DragHandleIcon, GearIcon, PencilIcon, ShareIcon } from "./icons";
 
 interface Props {
   grid: Grid;
@@ -18,9 +19,9 @@ const CELEBRATION_DURATION_MS = 1100;
 const CONFETTI_ANGLES = [-90, -65, -40, -15, 15, 40, 65, 90, -110, 110];
 const CONFETTI_COLORS = ["#f43f5e", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899"];
 
-/** Comme les icônes de carte de +1 (⠿ ± ⚙ ↗ ⋯) : des glyphes monochromes,
- * pas des émojis colorés — un style neutre cohérent avec le reste du chrome
- * plutôt que des pictogrammes voyants. */
+/** Comme les icônes de carte de +1 : des SVG monochromes en currentColor,
+ * pas des émojis colorés — un style neutre cohérent avec le reste du
+ * chrome plutôt que des pictogrammes voyants (voir icons.tsx). */
 export default function GridCard({ grid, draggable, onChange, onEdit, onShare, onCustomize }: Props) {
   const dragControls = useDragControls();
 
@@ -110,14 +111,14 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
             title="Glisser pour réordonner"
             onPointerDown={(e) => dragControls.start(e)}
           >
-            ⠿
+            <DragHandleIcon width={15} height={15} />
           </button>
         )}
         <button className="icon-btn" title="Modifier" aria-label="Modifier" onClick={onEdit}>
-          ✏
+          <PencilIcon width={15} height={15} />
         </button>
         <button className="icon-btn" title="Partager" aria-label="Partager" onClick={onShare}>
-          ↗
+          <ShareIcon width={15} height={15} />
         </button>
         <button
           className="icon-btn"
@@ -125,14 +126,17 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
           aria-label="Personnaliser"
           onClick={onCustomize}
         >
-          ⚙
+          <GearIcon width={15} height={15} />
         </button>
       </div>
 
       <h2 className="card-title">
         {grid.pinned && (
           <span className="card-pin" aria-label="Épinglée">
-            📌
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <circle cx="12" cy="7" r="5" />
+              <path d="M10.5 11.5h3L13 22h-2z" />
+            </svg>
           </span>
         )}
         {grid.title}

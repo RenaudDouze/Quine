@@ -112,7 +112,7 @@ describe("HomeView", () => {
     ]);
     renderHome();
     const titles = screen.getAllByText(/Alpha|Bravo|Charlie/).map((el) => el.textContent);
-    expect(titles).toEqual(["📌Bravo", "Alpha", "Charlie"]);
+    expect(titles).toEqual(["Bravo", "Alpha", "Charlie"]);
   });
 
   it("shows the free-center hint in the card meta", () => {
@@ -382,7 +382,7 @@ describe("HomeView", () => {
       await user.click(screen.getByRole("button", { name: /Épingler en haut/ }));
 
       const titles = screen.getAllByText(/Alpha|Bravo/).map((el) => el.textContent);
-      expect(titles).toEqual(["📌Bravo", "Alpha"]);
+      expect(titles).toEqual(["Bravo", "Alpha"]);
       expect(loadGrids().find((g) => g.title === "Bravo")?.pinned).toBe(true);
     });
 
