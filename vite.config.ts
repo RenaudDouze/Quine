@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'Bingo Perso',
-        short_name: 'Bingo',
+        name: 'Quine Perso',
+        short_name: 'Quine',
         description: "Créez et jouez à vos propres grilles de bingo personnalisées.",
         theme_color: '#f8fafc',
         background_color: '#f8fafc',

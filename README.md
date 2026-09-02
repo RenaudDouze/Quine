@@ -1,4 +1,4 @@
-# Bingo
+# Quine
 
 PWA de bingo à grilles personnalisées : créez une grille (3×3, 4×4 ou 5×5) à
 partir de vos propres phrases ou mots, jouez en cochant les cases, et

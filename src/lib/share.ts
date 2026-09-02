@@ -53,7 +53,7 @@ function normalizeGrid(raw: Partial<Grid>): Grid {
 
   return {
     id: uid(),
-    title: (raw.title || "").trim() || "Grille de bingo",
+    title: (raw.title || "").trim() || "Grille de Quine",
     size,
     freeCenter,
     items,

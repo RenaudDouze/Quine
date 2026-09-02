@@ -135,13 +135,13 @@ describe("CustomizeModal", () => {
       expect(onUpdate).not.toHaveBeenCalled();
     });
 
-    it('remplace un titre vide (ou uniquement des espaces) par "Grille de bingo"', () => {
+    it('remplace un titre vide (ou uniquement des espaces) par "Grille de Quine"', () => {
       const { onUpdate } = renderModal({ title: "Ancien" });
       const input = screen.getByDisplayValue("Ancien");
       fireEvent.change(input, { target: { value: "   " } });
       fireEvent.blur(input);
-      expect(onUpdate).toHaveBeenCalledWith({ title: "Grille de bingo" });
-      expect(screen.getByDisplayValue("Grille de bingo")).toBeInTheDocument();
+      expect(onUpdate).toHaveBeenCalledWith({ title: "Grille de Quine" });
+      expect(screen.getByDisplayValue("Grille de Quine")).toBeInTheDocument();
     });
 
     it("désactive le champ nom quand la grille est archivée", () => {
