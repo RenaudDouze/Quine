@@ -1011,4 +1011,59 @@ describe("HomeView", () => {
       expect(screen.queryByText('Partager "Grille à partager"', { selector: "h2" })).not.toBeInTheDocument();
     });
   });
+
+  describe("secours si une modale plante à l'affichage (Personnaliser/Modifier)", () => {
+    afterEach(() => {
+      vi.mocked(ErrorBoundary).mockImplementation(defaultErrorBoundaryImpl);
+    });
+
+    it("propose de recharger la page plutôt que de laisser une page blanche (modale Personnaliser)", async () => {
+      vi.mocked(ErrorBoundary).mockImplementation(({ fallback }) => fallback(() => {}));
+      saveGrids([makeGrid({ title: "Ma grille" })]);
+      const user = userEvent.setup();
+      renderHome();
+      await openCustomize(user, "Ma grille");
+
+      expect(screen.getByText("Personnaliser « Ma grille »", { selector: "h2" })).toBeInTheDocument();
+      expect(
+        screen.getByText("Une erreur est survenue en affichant cette fenêtre. Recharge la page pour continuer.")
+      ).toBeInTheDocument();
+    });
+
+    it('recharge la page au clic sur "Recharger la page" (modale Personnaliser)', async () => {
+      const reloadSpy = vi.fn();
+      vi.mocked(ErrorBoundary).mockImplementation(({ fallback }) => fallback(reloadSpy));
+      saveGrids([makeGrid({ title: "Ma grille" })]);
+      const user = userEvent.setup();
+      renderHome();
+      await openCustomize(user, "Ma grille");
+
+      fireEvent.click(screen.getByRole("button", { name: "Recharger la page" }));
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('referme le secours sans recharger au clic sur "Fermer" (modale Personnaliser)', async () => {
+      vi.mocked(ErrorBoundary).mockImplementation(({ fallback }) => fallback(() => {}));
+      saveGrids([makeGrid({ title: "Ma grille" })]);
+      const user = userEvent.setup();
+      renderHome();
+      await openCustomize(user, "Ma grille");
+
+      fireEvent.click(screen.getByRole("button", { name: "Fermer" }));
+      expect(screen.queryByText("Personnaliser « Ma grille »", { selector: "h2" })).not.toBeInTheDocument();
+    });
+
+    it("montre le même secours pour la modale Modifier, avec son propre titre et sa propre fermeture", async () => {
+      vi.mocked(ErrorBoundary).mockImplementation(({ fallback }) => fallback(() => {}));
+      saveGrids([makeGrid({ title: "Ma grille" })]);
+      const user = userEvent.setup();
+      renderHome();
+      await user.click(screen.getByRole("button", { name: "Modifier" }));
+
+      expect(screen.getByText("Modifier « Ma grille »", { selector: "h2" })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Fermer" }));
+      expect(screen.queryByText("Modifier « Ma grille »", { selector: "h2" })).not.toBeInTheDocument();
+    });
+  });
 });

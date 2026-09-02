@@ -44,23 +44,22 @@ const NEXT_ARCHIVE_VIEW: Record<ArchiveView, ArchiveView> = { active: "archived"
 const UNDO_TIMEOUT_MS = 5000;
 const SYNC_NOTICE_TIMEOUT_MS = 4000;
 
-// Secours si `ShareModal` (chargé à la demande, voir `ShareModal` ci-dessus)
-// échoue à charger : le cas le plus probable est un onglet resté ouvert
-// depuis avant un déploiement, qui référence encore un chunk JS supprimé
-// (noms de fichiers hashés par Vite, anciens hashs jamais conservés côté
-// GitHub Pages). `Suspense` seul ne rattrape que l'attente du chunk, pas son
-// échec — voir ErrorBoundary.tsx.
-function chunkLoadFailedFallback(heading: string, onClose: () => void) {
+// Filet de secours générique pour une modale qui plante à l'affichage : sans
+// lui, une exception non rattrapée n'importe où dans son sous-arbre démonte
+// toute l'app en page blanche — voir ErrorBoundary.tsx. `message` distingue
+// deux causes : un chunk JS chargé à la demande (ShareModal) introuvable
+// après un déploiement (`Suspense` seul ne rattrape que l'attente du chunk,
+// pas son échec), d'un bug de rendu plus générique dans une modale du bundle
+// principal (CustomizeModal, EditModal — jamais concernées par un chunk
+// manquant, mais tout aussi capables de planter).
+function modalCrashFallback(heading: string, message: string, onClose: () => void) {
   return (retry: () => void) => (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <div className="modal-panel-header">
           <h2>{heading}</h2>
         </div>
-        <p className="modal-hint">
-          Ce panneau n'a pas pu se charger — une nouvelle version de l'app est probablement disponible. Recharge la
-          page pour la récupérer.
-        </p>
+        <p className="modal-hint">{message}</p>
         <div className="modal-row">
           <button className="modal-btn" onClick={retry}>
             Recharger la page
@@ -73,6 +72,10 @@ function chunkLoadFailedFallback(heading: string, onClose: () => void) {
     </div>
   );
 }
+
+const CHUNK_LOAD_FAILED_MESSAGE =
+  "Ce panneau n'a pas pu se charger — une nouvelle version de l'app est probablement disponible. Recharge la page pour la récupérer.";
+const MODAL_CRASH_MESSAGE = "Une erreur est survenue en affichant cette fenêtre. Recharge la page pour continuer.";
 
 interface Props {
   themePreference: ThemePreference;
@@ -453,7 +456,9 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
       )}
 
       {syncOpen && (
-        <ErrorBoundary fallback={chunkLoadFailedFallback("Synchroniser mes grilles", () => setSyncOpen(false))}>
+        <ErrorBoundary
+          fallback={modalCrashFallback("Synchroniser mes grilles", CHUNK_LOAD_FAILED_MESSAGE, () => setSyncOpen(false))}
+        >
           <Suspense fallback={null}>
             <ShareModal
               grids={grids}
@@ -472,7 +477,11 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
 
       {shareTarget && (
         <ErrorBoundary
-          fallback={chunkLoadFailedFallback(`Partager "${shareTarget.title}"`, () => setShareTarget(null))}
+          fallback={modalCrashFallback(
+            `Partager "${shareTarget.title}"`,
+            CHUNK_LOAD_FAILED_MESSAGE,
+            () => setShareTarget(null)
+          )}
         >
           <Suspense fallback={null}>
             <ShareModal
@@ -488,21 +497,33 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
       )}
 
       {customizeTarget && (
-        <CustomizeModal
-          grid={customizeTarget}
-          onClose={() => setCustomizeTarget(null)}
-          onUpdate={(patch) => patchGrid(customizeTarget.id, patch)}
-          onShuffle={() => shuffleGrid(customizeTarget.id)}
-          onReset={() => resetGrid(customizeTarget.id)}
-          onTogglePin={() => togglePin(customizeTarget.id)}
-          onToggleArchive={() => toggleArchive(customizeTarget.id)}
-          onDuplicate={() => handleDuplicate(customizeTarget)}
-          onDelete={() => handleDelete(customizeTarget)}
-        />
+        <ErrorBoundary
+          fallback={modalCrashFallback(
+            `Personnaliser « ${customizeTarget.title} »`,
+            MODAL_CRASH_MESSAGE,
+            () => setCustomizeTarget(null)
+          )}
+        >
+          <CustomizeModal
+            grid={customizeTarget}
+            onClose={() => setCustomizeTarget(null)}
+            onUpdate={(patch) => patchGrid(customizeTarget.id, patch)}
+            onShuffle={() => shuffleGrid(customizeTarget.id)}
+            onReset={() => resetGrid(customizeTarget.id)}
+            onTogglePin={() => togglePin(customizeTarget.id)}
+            onToggleArchive={() => toggleArchive(customizeTarget.id)}
+            onDuplicate={() => handleDuplicate(customizeTarget)}
+            onDelete={() => handleDelete(customizeTarget)}
+          />
+        </ErrorBoundary>
       )}
 
       {editTarget && (
-        <EditModal grid={editTarget} onClose={() => setEditTarget(null)} onSave={updateGrid} />
+        <ErrorBoundary
+          fallback={modalCrashFallback(`Modifier « ${editTarget.title} »`, MODAL_CRASH_MESSAGE, () => setEditTarget(null))}
+        >
+          <EditModal grid={editTarget} onClose={() => setEditTarget(null)} onSave={updateGrid} />
+        </ErrorBoundary>
       )}
 
       {syncNotice && (
