@@ -319,7 +319,7 @@ describe("ShareModal", () => {
         fireEvent.click(screen.getByText("Copier le lien"));
       });
       expect(writeTextMock).toHaveBeenCalledTimes(1);
-      expect(screen.getByText("Lien copié ✓")).toBeInTheDocument();
+      expect(screen.getByText("Lien copié")).toBeInTheDocument();
       vi.unstubAllGlobals();
     });
 
@@ -332,7 +332,7 @@ describe("ShareModal", () => {
       await act(async () => {
         fireEvent.click(screen.getByText("Copier le lien"));
       });
-      expect(screen.getByText("Lien copié ✓")).toBeInTheDocument();
+      expect(screen.getByText("Lien copié")).toBeInTheDocument();
       await act(async () => {
         vi.advanceTimersByTime(2100);
       });

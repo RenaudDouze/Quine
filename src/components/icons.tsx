@@ -253,3 +253,36 @@ export function ResetIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Exporter en image : cadre + horizon/soleil, pictogramme "image" classique.
+ * Comme +1. */
+export function ImageIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.4" fill="currentColor" stroke="none" />
+      <path d="M3 16.5l5.5-5.5a1.5 1.5 0 0 1 2.1 0L15 15l2-2a1.5 1.5 0 0 1 2.1 0L21 15.5" />
+    </svg>
+  );
+}
+
+/** Confirmation (lien copié...) : simple coche. Comme +1. */
+export function CheckIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <path d="M4 12.5l5 5L20 6.5" />
+    </svg>
+  );
+}
+
+/** Imprimer une grille : imprimante classique, sans équivalent chez +1 (pas
+ * d'impression papier d'un compteur). */
+export function PrintIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" />
+    </svg>
+  );
+}

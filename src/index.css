@@ -887,7 +887,7 @@ button {
   }
 }
 
-/* Impression d'une grille (bouton "🖨️ Imprimer" d'une carte) : comme les
+/* Impression d'une grille (bouton "Imprimer" de la modale Partager) : comme les
    grilles s'affichent maintenant toutes ensemble sur la même page (plus
    d'écran dédié à une grille précise), n'imprimer QUE celle demandée
    suppose de masquer tout le reste — le chrome de la page, et chaque autre
