@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { COLORS } from "../lib/colors";
 import type { Grid } from "../lib/bingo";
 import { isValidImageUrl } from "../lib/url";
-import { CloseIcon } from "./icons";
+import { ArchiveIcon, CloseIcon, DuplicateIcon, EyeIcon, PinIcon, ResetIcon, ShuffleIcon, TrashIcon } from "./icons";
 
 interface Props {
   grid: Grid;
@@ -183,26 +183,34 @@ export default function CustomizeModal({
 
         <section className="modal-section">
           <button className="modal-btn" onClick={handleShuffle}>
-            🔀 Remélanger
+            <ShuffleIcon width={16} height={16} /> Remélanger
           </button>
           <button className="modal-btn" onClick={handleReset}>
-            ↺ Réinitialiser les coches
+            <ResetIcon width={16} height={16} /> Réinitialiser les coches
           </button>
           <button className="modal-btn" onClick={handleTogglePin}>
-            {grid.pinned ? "📌 Détacher cette grille" : "📌 Épingler en haut"}
+            <PinIcon width={16} height={16} /> {grid.pinned ? "Détacher cette grille" : "Épingler en haut"}
           </button>
           <button className="modal-btn" onClick={handleToggleArchive}>
-            {grid.archived ? "📤 Désarchiver cette grille" : "📦 Archiver cette grille"}
+            {grid.archived ? (
+              <>
+                <EyeIcon width={16} height={16} /> Désarchiver cette grille
+              </>
+            ) : (
+              <>
+                <ArchiveIcon width={16} height={16} /> Archiver cette grille
+              </>
+            )}
           </button>
           <button className="modal-btn" onClick={handleDuplicate}>
-            📋 Dupliquer cette grille
+            <DuplicateIcon width={16} height={16} /> Dupliquer cette grille
           </button>
         </section>
 
         <section className="modal-section modal-section--danger">
           <h3>Zone de danger</h3>
           <button type="button" className="modal-btn modal-btn--danger" onClick={handleDelete}>
-            🗑 Supprimer cette grille
+            <TrashIcon width={16} height={16} /> Supprimer cette grille
           </button>
         </section>
       </div>

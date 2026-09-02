@@ -1,7 +1,7 @@
 import { Reorder, useDragControls } from "framer-motion";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { checkWin, WIN_RULES, type Grid } from "../lib/bingo";
-import { DragHandleIcon, GearIcon, PencilIcon, ShareIcon } from "./icons";
+import { DragHandleIcon, GearIcon, PencilIcon, PinIcon, ShareIcon } from "./icons";
 
 interface Props {
   grid: Grid;
@@ -133,10 +133,7 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
       <h2 className="card-title">
         {grid.pinned && (
           <span className="card-pin" aria-label="Épinglée">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <circle cx="12" cy="7" r="5" />
-              <path d="M10.5 11.5h3L13 22h-2z" />
-            </svg>
+            <PinIcon width={14} height={14} />
           </span>
         )}
         {grid.title}

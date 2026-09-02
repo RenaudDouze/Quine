@@ -194,3 +194,62 @@ export function ShareIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Dupliquer : deux rectangles superposés, convention "copier". Comme +1. */
+export function DuplicateIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <rect x="8" y="8" width="13" height="13" rx="2" />
+      <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
+    </svg>
+  );
+}
+
+/** Épingler/détacher : même silhouette que le badge d'épingle sur la carte
+ * (voir GridCard.tsx, qui réutilise ce composant). Comme +1. */
+export function PinIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...props} fill="currentColor" stroke="none">
+      <circle cx="12" cy="7" r="5" />
+      <path d="M10.5 11.5h3L13 22h-2z" />
+    </svg>
+  );
+}
+
+/** Supprimer : corbeille classique. Comme +1. */
+export function TrashIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <path d="M4 7h16" />
+      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  );
+}
+
+/** Remélanger la grille : flèches croisées, sans équivalent chez +1 (pas de
+ * mélange aléatoire de contenu chez lui). */
+export function ShuffleIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <polyline points="16 3 21 3 21 8" />
+      <line x1="4" y1="20" x2="21" y2="3" />
+      <polyline points="21 16 21 21 16 21" />
+      <line x1="15" y1="15" x2="21" y2="21" />
+      <line x1="4" y1="4" x2="9" y2="9" />
+    </svg>
+  );
+}
+
+/** Réinitialiser les coches : flèche circulaire, sans équivalent chez +1 (pas
+ * de coches à décocher chez lui). */
+export function ResetIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+      <path d="M20 4v5h-5" />
+    </svg>
+  );
+}
