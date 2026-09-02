@@ -13,11 +13,11 @@
     <line x1="120" y1="331" x2="392" y2="331"/>
   </g>
   <g font-family="Arial, Helvetica, sans-serif" font-weight="800" fill="#ffffff" text-anchor="middle" font-size="88">
-    <text x="150" y="168">B</text>
-    <text x="150" y="286">I</text>
-    <text x="150" y="404" font-size="70">N</text>
-    <text x="362" y="168">G</text>
-    <text x="362" y="404">O</text>
+    <text x="150" y="168">Q</text>
+    <text x="150" y="286">U</text>
+    <text x="150" y="404">I</text>
+    <text x="362" y="168" font-size="70">N</text>
+    <text x="362" y="404">E</text>
   </g>
   <circle cx="256" cy="256" r="46" fill="#facc15"/>
 </svg>
