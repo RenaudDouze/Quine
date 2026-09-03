@@ -304,6 +304,16 @@ describe("parseBackupJson", () => {
     expect(result?.[0].backgroundImageUrl).toBeUndefined();
   });
 
+  it("ignore une couleur ou une image de fond qui sont des chaînes, mais pas au bon format (pas un hex/http(s) valide — ex : sauvegarde trafiquée à la main)", () => {
+    const result = parseBackupJson(
+      JSON.stringify([
+        { title: "A", size: 3, items: [], color: "red", backgroundImageUrl: "javascript:alert(1)" },
+      ])
+    );
+    expect(result?.[0].color).toBeUndefined();
+    expect(result?.[0].backgroundImageUrl).toBeUndefined();
+  });
+
   it('retombe sur la condition de victoire "line" si absente ou invalide', () => {
     expect(parseBackupJson(JSON.stringify([{ title: "A", size: 3, items: [] }]))?.[0].winRule).toBe(
       "line"
@@ -413,6 +423,15 @@ describe("encodeGridsToParam / decodeGridsFromParam", () => {
     const decoded = decodeGridsFromParam(encoded);
     expect(decoded?.[0].color).toBe("#0d9488");
     expect(decoded?.[0].backgroundImageUrl).toBe("https://example.com/bg.jpg");
+  });
+
+  it("ignore une couleur ou une image de fond mal formées dans un lien compact trafiqué à la main", () => {
+    const tampered = btoa(
+      JSON.stringify([{ t: "A", s: 3, i: [], k: "red", u: "javascript:alert(1)" }])
+    );
+    const decoded = decodeGridsFromParam(tampered);
+    expect(decoded?.[0].color).toBeUndefined();
+    expect(decoded?.[0].backgroundImageUrl).toBeUndefined();
   });
 
   it("omet la couleur et l'image de fond du lien compact quand elles sont absentes", () => {

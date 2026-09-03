@@ -1,6 +1,8 @@
 import { Reorder, useDragControls } from "framer-motion";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { checkWin, WIN_RULES, type Grid } from "../lib/bingo";
+import { isValidHexColor } from "../lib/colors";
+import { isValidImageUrl } from "../lib/url";
 import { DragHandleIcon, GearIcon, PencilIcon, PinIcon, ShareIcon } from "./icons";
 
 interface Props {
@@ -83,6 +85,17 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
     onChange({ ...grid, cells });
   }
 
+  // `grid.color`/`grid.backgroundImageUrl` peuvent venir d'une grille
+  // importée (backup JSON, lien de partage, synchro distante) sans être
+  // passés par les formulaires de CustomizeModal, qui seuls garantissent un
+  // hex à 6 chiffres / une URL http(s). Une image de fond arbitraire s'y
+  // chargerait dès l'affichage de la carte (fuite d'IP/UA vers un tiers,
+  // sans interaction) — d'où cette validation à l'usage plutôt que de faire
+  // confiance à la donnée stockée.
+  const safeColor = grid.color && isValidHexColor(grid.color) ? grid.color : undefined;
+  const safeBackgroundImageUrl =
+    grid.backgroundImageUrl && isValidImageUrl(grid.backgroundImageUrl) ? grid.backgroundImageUrl : undefined;
+
   return (
     <Reorder.Item
       as="div"
@@ -92,12 +105,12 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
       dragListener={false}
       dragControls={dragControls}
       className="grid-item"
-      style={{ "--card-accent": grid.color, "--accent": grid.color } as CSSProperties}
+      style={{ "--card-accent": safeColor, "--accent": safeColor } as CSSProperties}
     >
-      {grid.backgroundImageUrl && (
+      {safeBackgroundImageUrl && (
         <div
           className="grid-item-bg"
-          style={{ backgroundImage: `url("${grid.backgroundImageUrl}")` }}
+          style={{ backgroundImage: `url("${safeBackgroundImageUrl}")` }}
           aria-hidden="true"
         />
       )}

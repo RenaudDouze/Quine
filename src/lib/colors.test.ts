@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COLORS, pickColor } from "./colors";
+import { COLORS, isValidHexColor, pickColor } from "./colors";
 
 describe("COLORS", () => {
   it("contient exactement la palette curatée attendue", () => {
@@ -37,5 +37,43 @@ describe("pickColor", () => {
 
   it("boucle correctement après plusieurs tours complets", () => {
     expect(pickColor(COLORS.length * 3 + 2)).toBe("#0d9488");
+  });
+});
+
+describe("isValidHexColor", () => {
+  it("accepte une couleur hexadécimale à 6 chiffres en minuscules", () => {
+    expect(isValidHexColor("#2563eb")).toBe(true);
+  });
+
+  it("accepte une couleur hexadécimale à 6 chiffres en majuscules", () => {
+    expect(isValidHexColor("#2563EB")).toBe(true);
+  });
+
+  it("refuse une chaîne sans #", () => {
+    expect(isValidHexColor("2563eb")).toBe(false);
+  });
+
+  it("refuse une couleur à 3 chiffres", () => {
+    expect(isValidHexColor("#25e")).toBe(false);
+  });
+
+  it("refuse une chaîne trop longue même si elle commence par un hex valide", () => {
+    expect(isValidHexColor("#2563eb00")).toBe(false);
+  });
+
+  it("refuse un mot-clé CSS", () => {
+    expect(isValidHexColor("red")).toBe(false);
+  });
+
+  it('refuse une valeur conçue pour casser hors d\'un attribut ("<couleur>")', () => {
+    expect(isValidHexColor('#2563eb" onload="alert(1)')).toBe(false);
+  });
+
+  it("refuse une chaîne vide", () => {
+    expect(isValidHexColor("")).toBe(false);
+  });
+
+  it("refuse un hex valide précédé d'autre chose (ancré en début de chaîne)", () => {
+    expect(isValidHexColor("x#2563eb")).toBe(false);
   });
 });

@@ -270,7 +270,7 @@ describe("PUT /api/sync/:code (écriture)", () => {
     expect(res.status).toBe(400);
   });
 
-  it("traite l'absence d'en-tête Content-Length comme une taille nulle (accepte le corps)", async () => {
+  it("accepte un corps de taille normale même sans en-tête Content-Length", async () => {
     const env = makeEnv();
     const code = generateSyncCode();
     const push = { baseVersion: 0, grids: [] };
@@ -282,13 +282,26 @@ describe("PUT /api/sync/:code (écriture)", () => {
     expect(res.status).toBe(200);
   });
 
-  it("renvoie 413 pour un corps trop volumineux", async () => {
+  it("renvoie 413 pour un corps réellement trop volumineux", async () => {
     const env = makeEnv();
     const code = generateSyncCode();
+    const push = { baseVersion: 0, grids: [{ id: "x", padding: "a".repeat(300 * 1024) }] };
     const req = new Request(`https://sync.example.com/api/sync/${code}`, {
       method: "PUT",
-      body: JSON.stringify({ baseVersion: 0, grids: [] }),
-      headers: { "Content-Length": String(1024 * 1024) },
+      body: JSON.stringify(push),
+    });
+    const res = await worker.fetch(req, env);
+    expect(res.status).toBe(413);
+  });
+
+  it("renvoie 413 pour un corps trop volumineux même quand Content-Length ment sur sa taille (mesure le corps réel, pas l'en-tête)", async () => {
+    const env = makeEnv();
+    const code = generateSyncCode();
+    const push = { baseVersion: 0, grids: [{ id: "x", padding: "a".repeat(300 * 1024) }] };
+    const req = new Request(`https://sync.example.com/api/sync/${code}`, {
+      method: "PUT",
+      body: JSON.stringify(push),
+      headers: { "Content-Length": "10" },
     });
     const res = await worker.fetch(req, env);
     expect(res.status).toBe(413);

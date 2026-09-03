@@ -110,14 +110,18 @@ async function handleGet(env: Env, code: string): Promise<Response> {
 }
 
 async function handlePut(request: Request, env: Env, code: string): Promise<Response> {
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (contentLength > MAX_BODY_BYTES) {
+  // Mesure la taille réelle du corps plutôt que de se fier à l'en-tête
+  // Content-Length : absent ou falsifié par le client (pas de raison de lui
+  // faire confiance), il laisserait passer un corps arbitrairement plus
+  // volumineux que la limite annoncée.
+  const buffer = await request.arrayBuffer();
+  if (buffer.byteLength > MAX_BODY_BYTES) {
     return json({ error: "Trop volumineux." }, { status: 413 }, env);
   }
 
   let payload: unknown;
   try {
-    payload = await request.json();
+    payload = JSON.parse(new TextDecoder().decode(buffer));
   } catch {
     return json({ error: "JSON invalide." }, { status: 400 }, env);
   }

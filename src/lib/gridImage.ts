@@ -1,4 +1,5 @@
 import type { Grid } from "./bingo";
+import { isValidHexColor } from "./colors";
 import { triggerDownload } from "./download";
 
 const CELL_SIZE = 120;
@@ -46,7 +47,13 @@ function tintWithWhite(hex: string, ratio: number): string {
  * DOM, entièrement testable sans navigateur. */
 export function buildGridSvg(grid: Grid): string {
   const n = grid.size;
-  const accent = grid.color || DEFAULT_ACCENT;
+  // `grid.color` peut venir d'une grille importée (backup JSON, lien de
+  // partage, synchro distante) sans être passée par le sélecteur de
+  // CustomizeModal, qui garantit seul un hex à 6 chiffres. Une chaîne
+  // arbitraire ici (ex : contenant un guillemet) casserait hors de
+  // l'attribut `fill="${...}"` inséré tel quel plus bas — d'où cette
+  // validation, plutôt qu'un simple `grid.color || DEFAULT_ACCENT`.
+  const accent = grid.color && isValidHexColor(grid.color) ? grid.color : DEFAULT_ACCENT;
   const freeCellFill = tintWithWhite(accent, FREE_CELL_TINT_RATIO);
   const boardSize = n * CELL_SIZE + (n - 1) * GAP;
   const width = boardSize + PADDING * 2;

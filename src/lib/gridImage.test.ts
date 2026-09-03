@@ -166,6 +166,25 @@ describe("buildGridSvg", () => {
     expect(cellRects(svg)[0].fill).toBe("#2563eb");
   });
 
+  it("falls back to the default accent color when grid.color isn't a valid hex color (e.g. a grid synced or imported from elsewhere, bypassing CustomizeModal's own picker)", () => {
+    const cells = buildCells(["A", "B", "C", "D", "E", "F", "G", "H", "I"], 3, false).map((c, i) => ({
+      ...c,
+      marked: i === 0,
+    }));
+    const svg = buildGridSvg(makeGrid({ cells, color: "red" }));
+    expect(cellRects(svg)[0].fill).toBe("#2563eb");
+  });
+
+  it("never lets an invalid grid.color break out of the SVG fill attribute", () => {
+    const cells = buildCells(["A", "B", "C", "D", "E", "F", "G", "H", "I"], 3, false).map((c, i) => ({
+      ...c,
+      marked: i === 0,
+    }));
+    const svg = buildGridSvg(makeGrid({ cells, color: '#2563eb" onload="alert(1)' }));
+    expect(svg).not.toContain("onload");
+    expect(cellRects(svg)[0].fill).toBe("#2563eb");
+  });
+
   it("gives an unmarked, non-free cell a white fill and dark text", () => {
     const cells = buildCells(["A", "B", "C", "D", "E", "F", "G", "H", "I"], 3, false);
     const svg = buildGridSvg(makeGrid({ cells }));

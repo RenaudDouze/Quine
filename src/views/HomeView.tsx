@@ -227,7 +227,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   function handleDuplicate(grid: Grid) {
     const timestamp = now();
     const copy: Grid = {
-      ...JSON.parse(JSON.stringify(grid)),
+      ...structuredClone(grid),
       id: uid(),
       title: grid.title + " (copie)",
       createdAt: timestamp,
@@ -255,36 +255,37 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     persist(grids.map((g) => (g.id === next.id ? { ...next, updatedAt: now() } : g)));
   }
 
+  // Remplace une seule grille, identifiée par son id, par le résultat de
+  // `updater` — point d'entrée commun à tous les réglages qui ne touchent
+  // qu'une grille à la fois (patch de champs, remélange, reset, épingle,
+  // archive...), pour ne pas répéter `grids.map((g) => (g.id === id ? ... :
+  // g))` à chaque fois.
+  function updateGridById(id: string, updater: (g: Grid) => Grid) {
+    persist(grids.map((g) => (g.id === id ? updater(g) : g)));
+  }
+
   // Applique un patch de champs à une seule grille, identifiée par son id.
   // Point d'entrée commun à tous les réglages simples (titre, couleur, image
   // de fond...) qui remplacent juste un ou plusieurs champs sans logique
   // additionnelle, comme updateCounter dans +1.
   function patchGrid(id: string, patch: Partial<Grid>) {
-    persist(grids.map((g) => (g.id === id ? { ...g, ...patch } : g)));
+    updateGridById(id, (g) => ({ ...g, ...patch }));
   }
 
   function shuffleGrid(id: string) {
-    persist(
-      grids.map((g) =>
-        g.id === id ? { ...g, cells: buildCells(g.items, g.size, g.freeCenter) } : g
-      )
-    );
+    updateGridById(id, (g) => ({ ...g, cells: buildCells(g.items, g.size, g.freeCenter) }));
   }
 
   function resetGrid(id: string) {
-    persist(
-      grids.map((g) =>
-        g.id === id ? { ...g, cells: g.cells.map((c) => (c.free ? c : { ...c, marked: false })) } : g
-      )
-    );
+    updateGridById(id, (g) => ({ ...g, cells: g.cells.map((c) => (c.free ? c : { ...c, marked: false })) }));
   }
 
   function togglePin(id: string) {
-    persist(grids.map((g) => (g.id === id ? { ...g, pinned: !g.pinned } : g)));
+    updateGridById(id, (g) => ({ ...g, pinned: !g.pinned }));
   }
 
   function toggleArchive(id: string) {
-    persist(grids.map((g) => (g.id === id ? { ...g, archived: !g.archived } : g)));
+    updateGridById(id, (g) => ({ ...g, archived: !g.archived }));
   }
 
   // Calculés une fois pour servir à la fois d'aria-label et d'infobulle sur

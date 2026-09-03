@@ -1,7 +1,9 @@
 import { buildCells, type Cell, type Grid, type WinRule } from "./bingo";
+import { isValidHexColor } from "./colors";
 import { triggerDownload } from "./download";
 import { uid } from "./storage";
 import { now } from "./time";
+import { isValidImageUrl } from "./url";
 
 /** Déclenche le téléchargement d'un fichier JSON contenant toutes les grilles
  * (état complet, cases cochées comprises — pour restaurer sur un autre appareil). */
@@ -60,8 +62,15 @@ function normalizeGrid(raw: Partial<Grid>): Grid {
     cells,
     createdAt: typeof raw.createdAt === "number" ? raw.createdAt : timestamp,
     updatedAt: timestamp,
-    color: typeof raw.color === "string" ? raw.color : undefined,
-    backgroundImageUrl: typeof raw.backgroundImageUrl === "string" ? raw.backgroundImageUrl : undefined,
+    // Même validation que le sélecteur de CustomizeModal (isValidHexColor) et
+    // le champ image de fond (isValidImageUrl) : une grille importée (backup
+    // JSON, lien de partage) n'est jamais passée par ces formulaires, donc
+    // rien ne garantit la forme de ces deux champs sans ce garde-fou.
+    color: typeof raw.color === "string" && isValidHexColor(raw.color) ? raw.color : undefined,
+    backgroundImageUrl:
+      typeof raw.backgroundImageUrl === "string" && isValidImageUrl(raw.backgroundImageUrl)
+        ? raw.backgroundImageUrl
+        : undefined,
     pinned: !!raw.pinned,
     archived: !!raw.archived,
     winRule: raw.winRule === "blackout" || raw.winRule === "corners" ? raw.winRule : "line",
