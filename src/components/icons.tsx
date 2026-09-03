@@ -88,6 +88,20 @@ export function FullscreenIcon(props: IconProps) {
   );
 }
 
+/** Mode focus : réticule de mise au point, pour le distinguer du plein
+ * écran natif (FullscreenIcon ci-dessus, flèches d'angle). Comme +1. */
+export function FocusIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3v3" />
+      <path d="M12 18v3" />
+      <path d="M3 12h3" />
+      <path d="M18 12h3" />
+    </svg>
+  );
+}
+
 /** Actives = visible/affichée, Archivées = mises de côté (hors de vue) : une
  * paire différente du contenant ouvert/fermé (dossier, bac) essayés avant. */
 export function EyeIcon(props: IconProps) {

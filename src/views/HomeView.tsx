@@ -14,6 +14,7 @@ import {
   ArchiveIcon,
   CloseIcon,
   EyeIcon,
+  FocusIcon,
   FullscreenIcon,
   MoonIcon,
   MoreIcon,
@@ -126,33 +127,13 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
 
   // Masque l'en-tête (titre, icônes, recherche, filtre archivés) pour ne
   // garder que la liste de grilles à l'écran (utile pour la projeter sur une
-  // TV pendant un événement), et passe en plein écran natif quand c'est
-  // supporté (absent sur Safari iOS, où le masquage de l'en-tête reste quand
-  // même utile seul). Même logique que PlayView.
+  // TV pendant un événement), sans passer par le plein écran natif du
+  // navigateur (`requestFullscreen`) : celui-ci prend tout l'écran de
+  // l'appareil (masque aussi la barre d'adresse/les onglets) plutôt que de
+  // rester dans la fenêtre/l'onglet déjà ouvert — pas ce qui est recherché
+  // ici, un simple affichage épuré dans l'espace disponible.
   const [focusMode, setFocusMode] = useState(false);
 
-  useEffect(() => {
-    if (focusMode) {
-      document.documentElement.requestFullscreen?.().catch(() => {});
-    } else if (document.fullscreenElement) {
-      document.exitFullscreen?.().catch(() => {});
-    }
-  }, [focusMode]);
-
-  // Synchronise l'état si le plein écran natif est quitté autrement que par
-  // notre bouton (ex : touche Échap gérée nativement par le navigateur).
-  /* oxlint-disable react/set-state-in-effect -- réagit à un événement externe
-     au navigateur (sortie du plein écran natif), pas dérivable au rendu */
-  useEffect(() => {
-    const onFullscreenChange = () => {
-      if (!document.fullscreenElement) setFocusMode(false);
-    };
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
-  }, []);
-
-  // Filet de sécurité pour les navigateurs sans API Fullscreen (ex : Safari
-  // iOS) : l'événement `fullscreenchange` ci-dessus n'y est jamais émis.
   useEffect(() => {
     if (!focusMode) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -161,6 +142,33 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [focusMode]);
+
+  // Bascule indépendante vers le plein écran natif de l'appareil
+  // (`requestFullscreen`) : contrairement au mode focus ci-dessus, réclame
+  // vraiment tout l'écran (masque la barre d'adresse/les onglets), pour qui
+  // le souhaite explicitement (ex : poser la tablette en écran dédié). Les
+  // deux modes sont combinables mais indépendants l'un de l'autre.
+  const [deviceFullscreen, setDeviceFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (deviceFullscreen) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, [deviceFullscreen]);
+
+  // Resynchronise l'état si le plein écran natif est quitté autrement que
+  // par notre bouton (ex : touche Échap gérée nativement par le navigateur).
+  /* oxlint-disable react/set-state-in-effect -- réagit à un événement externe
+     au navigateur (sortie du plein écran natif), pas dérivable au rendu */
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) setDeviceFullscreen(false);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
   /* oxlint-enable react/set-state-in-effect */
 
   // Action rapide depuis un raccourci de l'app installée (?action=new|sync),
@@ -311,6 +319,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   const hasSyncError = remoteSync.status === "error";
   const menuButtonLabel = `${menuOpen ? "Masquer le menu" : "Ouvrir le menu"}${hasSyncError ? " (erreur de synchronisation)" : ""}`;
   const syncButtonLabel = `Synchroniser mes grilles${hasSyncError ? " (erreur de synchronisation)" : ""}`;
+  const deviceFullscreenLabel = deviceFullscreen ? "Quitter le plein écran" : "Plein écran";
   const archiveViewLabel =
     archiveView === "archived"
       ? `Vue : Archivées (${archivedCount})`
@@ -325,8 +334,14 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
       {focusMode && (
         <button
           className="focus-exit-btn"
-          onClick={() => setFocusMode(false)}
-          aria-label="Quitter le mode plein écran"
+          onClick={() => {
+            setFocusMode(false);
+            // Un seul bouton de sortie visible dans cet état : il ramène à
+            // l'affichage normal en une fois, y compris si le plein écran
+            // natif de l'appareil était aussi actif.
+            setDeviceFullscreen(false);
+          }}
+          aria-label="Quitter le mode focus"
         >
           <CloseIcon />
         </button>
@@ -396,8 +411,21 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
                       setFocusMode(true);
                       setMenuOpen(false);
                     }}
-                    aria-label="Mode plein écran"
-                    title="Mode plein écran"
+                    aria-label="Mode focus"
+                    title="Mode focus"
+                  >
+                    <FocusIcon />
+                  </button>
+                )}
+                {grids.length > 0 && (
+                  <button
+                    className="icon-btn"
+                    onClick={() => {
+                      setDeviceFullscreen((v) => !v);
+                      setMenuOpen(false);
+                    }}
+                    aria-label={deviceFullscreenLabel}
+                    title={deviceFullscreenLabel}
                   >
                     <FullscreenIcon />
                   </button>
