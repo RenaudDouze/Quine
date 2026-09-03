@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { checkWin, WIN_RULES, type Grid } from "../lib/bingo";
 import { isValidHexColor } from "../lib/colors";
 import { isValidImageUrl } from "../lib/url";
-import { DragHandleIcon, GearIcon, PencilIcon, PinIcon, ShareIcon } from "./icons";
+import { ChevronDownIcon, ChevronUpIcon, DragHandleIcon, GearIcon, PencilIcon, PinIcon, ShareIcon } from "./icons";
 
 interface Props {
   grid: Grid;
@@ -12,6 +12,14 @@ interface Props {
   onEdit: () => void;
   onShare: () => void;
   onCustomize: () => void;
+  // Absent (plutôt qu'un booléen "peut monter/descendre" séparé) en bout de
+  // liste : HomeView calcule déjà l'index dans la liste triée affichée pour
+  // ça, pas la peine de le lui faire recalculer ici. Alternative clavier au
+  // glisser-déposer (pointer-only, voir drag-handle ci-dessous) — n'a de sens
+  // que dans les mêmes conditions que lui, donc affichée seulement quand
+  // `draggable` l'est aussi.
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 // Durée d'affichage du confetti à l'apparition du bandeau Bingo.
@@ -24,7 +32,16 @@ const CONFETTI_COLORS = ["#f43f5e", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", 
 /** Comme les icônes de carte de +1 : des SVG monochromes en currentColor,
  * pas des émojis colorés — un style neutre cohérent avec le reste du
  * chrome plutôt que des pictogrammes voyants (voir icons.tsx). */
-export default function GridCard({ grid, draggable, onChange, onEdit, onShare, onCustomize }: Props) {
+export default function GridCard({
+  grid,
+  draggable,
+  onChange,
+  onEdit,
+  onShare,
+  onCustomize,
+  onMoveUp,
+  onMoveDown,
+}: Props) {
   const dragControls = useDragControls();
 
   const { hasWin, winSet } = useMemo(() => checkWin(grid.cells, grid.size, grid.winRule), [grid]);
@@ -127,6 +144,30 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
             <DragHandleIcon width={15} height={15} />
           </button>
         )}
+        {draggable && (
+          <>
+            <button
+              type="button"
+              className="icon-btn"
+              title="Monter"
+              aria-label="Monter"
+              disabled={!onMoveUp}
+              onClick={onMoveUp}
+            >
+              <ChevronUpIcon width={15} height={15} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              title="Descendre"
+              aria-label="Descendre"
+              disabled={!onMoveDown}
+              onClick={onMoveDown}
+            >
+              <ChevronDownIcon width={15} height={15} />
+            </button>
+          </>
+        )}
         <button className="icon-btn" title="Modifier" aria-label="Modifier" onClick={onEdit}>
           <PencilIcon width={15} height={15} />
         </button>
@@ -172,6 +213,16 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
               ]
                 .filter(Boolean)
                 .join(" ")}
+              // Cochée/décochée ne se distingue aujourd'hui que par la
+              // couleur (voir .cell.marked en CSS) — sans aria-pressed, un
+              // lecteur d'écran n'a aucun moyen de connaître l'état d'une
+              // case. Une case gratuite reste marquée en permanence
+              // (toggleCell l'ignore, voir plus haut) : désactivée plutôt que
+              // de laisser un bouton focusable qui ne répond jamais au clic,
+              // avec un libellé qui explique pourquoi.
+              aria-pressed={cell.free ? undefined : cell.marked}
+              aria-label={cell.free ? `${cell.label}, case toujours cochée` : undefined}
+              disabled={cell.free}
               onClick={() => toggleCell(i)}
             >
               <span className="cell-label">{cell.label}</span>
@@ -181,7 +232,7 @@ export default function GridCard({ grid, draggable, onChange, onEdit, onShare, o
       </div>
 
       {bannerVisible && (
-        <div className="bingo-banner" onClick={() => setDismissed(true)}>
+        <div className="bingo-banner" role="status" onClick={() => setDismissed(true)}>
           <div className="bingo-banner-inner">
             <span>🎉 BINGO ! 🎉</span>
           </div>

@@ -134,6 +134,25 @@ export function DragHandleIcon(props: IconProps) {
   );
 }
 
+/** Réordonner au clavier : chevrons haut/bas, alternative accessible à la
+ * poignée de glisser-déposer (pointer-only) — sans équivalent chez +1, où le
+ * glisser-déposer reste la seule méthode de réordonnancement. */
+export function ChevronUpIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <polyline points="5 15 12 8 19 15" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <polyline points="5 9 12 16 19 9" />
+    </svg>
+  );
+}
+
 const GEAR_TOOTH_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
 
 /** Personnalisation (nom, couleur, image de fond) : un engrenage classique.

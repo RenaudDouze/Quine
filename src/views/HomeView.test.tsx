@@ -480,6 +480,16 @@ describe("HomeView", () => {
       expect(screen.getByText("Bingo vacances")).toBeInTheDocument();
     });
 
+    it("labels the search field for screen readers, not just via its placeholder", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ title: "Bingo réunion" })]);
+      renderHome();
+      openMenu();
+      await user.click(screen.getByRole("button", { name: "Rechercher" }));
+
+      expect(screen.getByRole("textbox", { name: "Rechercher une grille" })).toBeInTheDocument();
+    });
+
     it("shows a no-match message when nothing matches the query", async () => {
       const user = userEvent.setup();
       saveGrids([makeGrid({ title: "Bingo réunion" })]);
@@ -541,6 +551,72 @@ describe("HomeView", () => {
       ]);
       renderHome();
       expect(screen.queryByRole("button", { name: "Réordonner" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("réordonnancement au clavier (alternative au glisser-déposer, pointer-only)", () => {
+    function cardIds() {
+      return Array.from(document.querySelectorAll<HTMLElement>("[data-grid-id]")).map((el) =>
+        el.getAttribute("data-grid-id")
+      );
+    }
+
+    it("moves a grid up and persists the new order", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha" }),
+        makeGrid({ id: "b", title: "Bravo" }),
+        makeGrid({ id: "c", title: "Charlie" }),
+      ]);
+      renderHome();
+      expect(cardIds()).toEqual(["a", "b", "c"]);
+
+      await user.click(screen.getAllByRole("button", { name: "Monter" })[1]);
+
+      expect(cardIds()).toEqual(["b", "a", "c"]);
+      expect(loadGrids().map((g) => g.id)).toEqual(["b", "a", "c"]);
+    });
+
+    it("moves a grid down and persists the new order", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha" }),
+        makeGrid({ id: "b", title: "Bravo" }),
+        makeGrid({ id: "c", title: "Charlie" }),
+      ]);
+      renderHome();
+
+      await user.click(screen.getAllByRole("button", { name: "Descendre" })[0]);
+
+      expect(cardIds()).toEqual(["b", "a", "c"]);
+      expect(loadGrids().map((g) => g.id)).toEqual(["b", "a", "c"]);
+    });
+
+    it("disables Monter on the first card and Descendre on the last card", () => {
+      saveGrids([makeGrid({ id: "a", title: "Alpha" }), makeGrid({ id: "b", title: "Bravo" })]);
+      renderHome();
+
+      const upButtons = screen.getAllByRole("button", { name: "Monter" });
+      const downButtons = screen.getAllByRole("button", { name: "Descendre" });
+      expect(upButtons[0]).toBeDisabled();
+      expect(downButtons[0]).not.toBeDisabled();
+      expect(upButtons[1]).not.toBeDisabled();
+      expect(downButtons[1]).toBeDisabled();
+    });
+
+    it("keeps a pinned grid first when moved, since Monter/Descendre reorder within the same pinned-first display order as drag-and-drop", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha", pinned: true }),
+        makeGrid({ id: "b", title: "Bravo" }),
+        makeGrid({ id: "c", title: "Charlie" }),
+      ]);
+      renderHome();
+      expect(cardIds()).toEqual(["a", "b", "c"]);
+
+      await user.click(screen.getAllByRole("button", { name: "Descendre" })[1]);
+
+      expect(cardIds()).toEqual(["a", "c", "b"]);
     });
   });
 

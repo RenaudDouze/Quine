@@ -288,6 +288,19 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     updateGridById(id, (g) => ({ ...g, archived: !g.archived }));
   }
 
+  // Alternative clavier au glisser-déposer (pointer-only — voir `draggable`
+  // plus haut, dont cette fonction partage la même contrainte de cohérence) :
+  // échange deux grilles adjacentes dans la liste triée affichée, exactement
+  // comme le fait `Reorder.Group` ci-dessous via `onReorder={persist}`.
+  function moveGrid(id: string, direction: -1 | 1) {
+    const index = sortedGrids.findIndex((g) => g.id === id);
+    const target = index + direction;
+    if (index === -1 || target < 0 || target >= sortedGrids.length) return;
+    const next = sortedGrids.slice();
+    [next[index], next[target]] = [next[target], next[index]];
+    persist(next);
+  }
+
   // Calculés une fois pour servir à la fois d'aria-label et d'infobulle sur
   // leur bouton respectif, comme dans +1.
   // Signale une erreur de synchro dès l'en-tête (bouton menu) et sur le
@@ -408,6 +421,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
               <input
                 autoFocus
                 type="text"
+                aria-label="Rechercher une grille"
                 placeholder="Rechercher une grille…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -442,7 +456,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
         </div>
       ) : (
         <Reorder.Group as="div" axis="y" values={sortedGrids} onReorder={persist} className="grid-list">
-          {sortedGrids.map((grid) => (
+          {sortedGrids.map((grid, index) => (
             <GridCard
               key={grid.id}
               grid={grid}
@@ -451,6 +465,8 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
               onEdit={() => setEditTarget(grid)}
               onShare={() => setShareTarget(grid)}
               onCustomize={() => setCustomizeTarget(grid)}
+              onMoveUp={index > 0 ? () => moveGrid(grid.id, -1) : undefined}
+              onMoveDown={index < sortedGrids.length - 1 ? () => moveGrid(grid.id, 1) : undefined}
             />
           ))}
         </Reorder.Group>

@@ -37,6 +37,33 @@ describe("EditModal", () => {
     expect(screen.getByText('Modifier « Grille de test »')).toBeInTheDocument();
   });
 
+  describe("accessibility", () => {
+    it("exposes a modal dialog, named by its title", () => {
+      renderModal({ title: "Grille de test" });
+      const dialog = screen.getByRole("dialog", { name: 'Modifier « Grille de test »' });
+      expect(dialog).toHaveAttribute("aria-modal", "true");
+    });
+
+    it("moves focus into the modal on mount", () => {
+      renderModal();
+      expect(screen.getByRole("button", { name: "Fermer" })).toHaveFocus();
+    });
+
+    it("restores focus to the triggering element on close", () => {
+      const trigger = document.createElement("button");
+      trigger.textContent = "Modifier";
+      document.body.appendChild(trigger);
+      trigger.focus();
+
+      const { unmount } = render(<EditModal grid={makeGrid()} onClose={vi.fn()} onSave={vi.fn()} />);
+      expect(trigger).not.toHaveFocus();
+
+      unmount();
+      expect(trigger).toHaveFocus();
+      trigger.remove();
+    });
+  });
+
   it("pre-fills the form from the grid", () => {
     renderModal();
     expect(screen.getByPlaceholderText(/écrivez chaque phrase/i)).toHaveValue(

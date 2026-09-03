@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { buildCells, type Grid } from "../lib/bingo";
 import { now } from "../lib/time";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import GridForm, { type GridFormValues } from "./GridForm";
 import { CloseIcon } from "./icons";
 
@@ -11,6 +12,9 @@ interface Props {
 }
 
 export default function EditModal({ grid, onClose, onSave }: Props) {
+  const titleId = useId();
+  const panelRef = useFocusTrap<HTMLDivElement>();
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -34,9 +38,17 @@ export default function EditModal({ grid, onClose, onSave }: Props) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={panelRef}
+        className="modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-panel-header">
-          <h2>Modifier « {grid.title} »</h2>
+          <h2 id={titleId}>Modifier « {grid.title} »</h2>
           <button className="modal-close" onClick={onClose} aria-label="Fermer">
             <CloseIcon />
           </button>

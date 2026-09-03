@@ -166,3 +166,27 @@ test('reorders grids by dragging a card by its handle', async ({ page }) => {
   const titlesAfterReload = await page.locator('.card-title').allTextContents()
   expect(titlesAfterReload).toEqual(titlesAfter)
 })
+
+test('reorders grids with the keyboard-accessible Monter/Descendre buttons', async ({ page }) => {
+  await createGrid(page, { title: 'Alpha', size: 3, items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] })
+  await page.goto('/')
+  await createGrid(page, { title: 'Bravo', size: 3, items: ['J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'] })
+  await page.goto('/')
+  await createGrid(page, { title: 'Charlie', size: 3, items: ['S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA'] })
+  await page.goto('/')
+
+  expect(await page.locator('.card-title').allTextContents()).toEqual(['Alpha', 'Bravo', 'Charlie'])
+
+  // The first card's Monter button is disabled — there's nothing above it.
+  await expect(page.getByRole('button', { name: 'Monter' }).first()).toBeDisabled()
+
+  await page.getByRole('button', { name: 'Descendre' }).first().click()
+  expect(await page.locator('.card-title').allTextContents()).toEqual(['Bravo', 'Alpha', 'Charlie'])
+
+  await page.getByRole('button', { name: 'Monter' }).nth(2).click()
+  expect(await page.locator('.card-title').allTextContents()).toEqual(['Bravo', 'Charlie', 'Alpha'])
+
+  // The new order survives a reload (persisted to localStorage).
+  await page.reload()
+  expect(await page.locator('.card-title').allTextContents()).toEqual(['Bravo', 'Charlie', 'Alpha'])
+})

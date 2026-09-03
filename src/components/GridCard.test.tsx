@@ -26,7 +26,11 @@ function makeGrid(overrides: Partial<Grid> = {}): Grid {
 /** Reflète les mises à jour d'`onChange` dans un état local, comme le fait
  * HomeView en vrai : indispensable pour les scénarios multi-étapes (cocher
  * une case puis vérifier que le plateau affiché a bien changé). */
-function renderCard(gridOverrides: Partial<Grid> = {}, draggable = true) {
+function renderCard(
+  gridOverrides: Partial<Grid> = {},
+  draggable = true,
+  moveHandlers: { onMoveUp?: () => void; onMoveDown?: () => void } = {}
+) {
   const initial = makeGrid(gridOverrides);
   const onChange = vi.fn();
   const onEdit = vi.fn();
@@ -47,6 +51,8 @@ function renderCard(gridOverrides: Partial<Grid> = {}, draggable = true) {
           onEdit={onEdit}
           onShare={onShare}
           onCustomize={onCustomize}
+          onMoveUp={moveHandlers.onMoveUp}
+          onMoveDown={moveHandlers.onMoveDown}
         />
       </Reorder.Group>
     );
@@ -162,6 +168,39 @@ describe("GridCard", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  describe("réordonnancement au clavier", () => {
+    it("shows Monter/Descendre buttons when draggable, as a keyboard alternative to the pointer-only drag handle", () => {
+      renderCard({}, true);
+      expect(screen.getByRole("button", { name: "Monter" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Descendre" })).toBeInTheDocument();
+    });
+
+    it("does not show Monter/Descendre buttons when not draggable", () => {
+      renderCard({}, false);
+      expect(screen.queryByRole("button", { name: "Monter" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Descendre" })).not.toBeInTheDocument();
+    });
+
+    it("calls onMoveUp/onMoveDown when clicked", async () => {
+      const user = userEvent.setup();
+      const onMoveUp = vi.fn();
+      const onMoveDown = vi.fn();
+      renderCard({}, true, { onMoveUp, onMoveDown });
+
+      await user.click(screen.getByRole("button", { name: "Monter" }));
+      expect(onMoveUp).toHaveBeenCalledTimes(1);
+
+      await user.click(screen.getByRole("button", { name: "Descendre" }));
+      expect(onMoveDown).toHaveBeenCalledTimes(1);
+    });
+
+    it("disables Monter/Descendre at the ends of the list, where no handler is passed", () => {
+      renderCard({}, true, { onMoveUp: undefined, onMoveDown: undefined });
+      expect(screen.getByRole("button", { name: "Monter" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Descendre" })).toBeDisabled();
+    });
+  });
+
   it("toggles a cell mark on click", async () => {
     const user = userEvent.setup();
     const { onChange } = renderCard();
@@ -172,6 +211,16 @@ describe("GridCard", () => {
 
     await user.click(cells[0]);
     expect(cells[0]).not.toHaveClass("marked");
+  });
+
+  it("exposes a cell's checked state via aria-pressed, not just color (screen readers can't perceive color)", async () => {
+    const user = userEvent.setup();
+    renderCard();
+    const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+    expect(cells[0]).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(cells[0]);
+    expect(cells[0]).toHaveAttribute("aria-pressed", "true");
   });
 
   it("does not toggle a free/GRATUIT cell", async () => {
@@ -187,6 +236,17 @@ describe("GridCard", () => {
     expect(freeCell).toHaveClass("marked");
   });
 
+  it("disables a free/GRATUIT cell instead of leaving a focusable button that never responds to activation", () => {
+    renderCard({
+      size: 5,
+      freeCenter: true,
+      items: Array.from({ length: 24 }, (_, i) => `item-${i}`),
+    });
+    const freeCell = screen.getByText("GRATUIT").closest("button")!;
+    expect(freeCell).toBeDisabled();
+    expect(freeCell).toHaveAccessibleName(/toujours cochée/);
+  });
+
   it("shows the bingo banner on a winning line and dismisses it on click", async () => {
     const user = userEvent.setup();
     renderCard();
@@ -198,6 +258,17 @@ describe("GridCard", () => {
     expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
     await user.click(screen.getByText(/bingo !/i));
     expect(screen.queryByText(/bingo !/i)).not.toBeInTheDocument();
+  });
+
+  it("announces the bingo banner to screen readers (role=status), not just visually", async () => {
+    const user = userEvent.setup();
+    renderCard();
+    const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+    await user.click(cells[0]);
+    await user.click(cells[1]);
+    await user.click(cells[2]);
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/bingo !/i);
   });
 
   it("hides the banner again once the winning line is broken", async () => {
