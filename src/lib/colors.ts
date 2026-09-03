@@ -14,3 +14,15 @@ export const COLORS = [
 export function pickColor(existingCount: number): string {
   return COLORS[existingCount % COLORS.length];
 }
+
+/** Un accent de grille doit être une couleur hexadécimale à 6 chiffres
+ * (#rrggbb) : le seul format que produit le sélecteur de couleurs de
+ * CustomizeModal, et le seul que tintWithWhite (gridImage.ts) sait
+ * interpréter. Une grille venue d'ailleurs (backup JSON, lien de partage,
+ * synchro distante) peut porter n'importe quelle chaîne dans son champ
+ * `color` — sans cette validation à l'usage, elle finirait insérée telle
+ * quelle dans un attribut SVG (gridImage.ts) ou appliquée comme valeur CSS
+ * arbitraire (GridCard.tsx). */
+export function isValidHexColor(value: string): boolean {
+  return /^#[0-9a-f]{6}$/i.test(value);
+}

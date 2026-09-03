@@ -139,6 +139,11 @@ describe("GridCard", () => {
     expect(document.querySelector(".grid-item-bg")).not.toBeInTheDocument();
   });
 
+  it("does not render a background image layer for a non-http(s) URL (e.g. a grid synced or imported from elsewhere, bypassing CustomizeModal's own validation)", () => {
+    renderCard({ backgroundImageUrl: "javascript:alert(1)" });
+    expect(document.querySelector(".grid-item-bg")).not.toBeInTheDocument();
+  });
+
   it("shows a drag handle when draggable", () => {
     renderCard({}, true);
     expect(screen.getByRole("button", { name: "Réordonner" })).toBeInTheDocument();
@@ -317,6 +322,12 @@ describe("GridCard", () => {
 
     it("does not override the theme's accent when the grid has no custom color", () => {
       renderCard();
+      const card = document.querySelector(".grid-item") as HTMLElement;
+      expect(card.style.getPropertyValue("--accent")).toBe("");
+    });
+
+    it("does not apply an invalid color (e.g. a grid synced or imported from elsewhere, bypassing CustomizeModal's own picker)", () => {
+      renderCard({ color: "red" });
       const card = document.querySelector(".grid-item") as HTMLElement;
       expect(card.style.getPropertyValue("--accent")).toBe("");
     });

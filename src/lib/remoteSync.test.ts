@@ -127,6 +127,66 @@ describe("appels réseau", () => {
         new Error("Impossible de récupérer les grilles synchronisées.")
       );
     });
+
+    it("lève une erreur si le state renvoyé n'a pas la forme attendue (ex : partenaire de synchro buggé, pas d'authentification sur le code)", async () => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse({ version: 1, grids: [{ oups: true }] }));
+      await expect(fetchSyncState(WORKER_URL, "ABCDEFGH")).rejects.toThrow(
+        new Error("Réponse du serveur invalide.")
+      );
+    });
+
+    it("lève une erreur si version n'est pas un nombre", async () => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse({ version: "1", grids: [] }));
+      await expect(fetchSyncState(WORKER_URL, "ABCDEFGH")).rejects.toThrow(
+        new Error("Réponse du serveur invalide.")
+      );
+    });
+
+    it.each([
+      ["null", null],
+      ["une chaîne", "pas un objet"],
+    ])("lève une erreur si le corps de la réponse n'est pas un objet (%s)", async (_label, body) => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse(body));
+      await expect(fetchSyncState(WORKER_URL, "ABCDEFGH")).rejects.toThrow(
+        new Error("Réponse du serveur invalide.")
+      );
+    });
+
+    it.each([
+      ["null", null],
+      ["un nombre", 42],
+    ])("lève une erreur si un élément de grids n'est pas un objet (%s)", async (_label, element) => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse({ version: 1, grids: [element] }));
+      await expect(fetchSyncState(WORKER_URL, "ABCDEFGH")).rejects.toThrow(
+        new Error("Réponse du serveur invalide.")
+      );
+    });
+
+    it("lève une erreur si un seul élément de grids sur plusieurs est invalide (chaque grille doit être valide, pas juste une seule)", async () => {
+      const validGrid = makeGrid();
+      vi.mocked(fetch).mockResolvedValue(jsonResponse({ version: 1, grids: [validGrid, { oups: true }] }));
+      await expect(fetchSyncState(WORKER_URL, "ABCDEFGH")).rejects.toThrow(
+        new Error("Réponse du serveur invalide.")
+      );
+    });
+
+    // Chacun de ces champs est individuellement requis (aucun ne peut
+    // compenser l'absence d'un autre) : chaque cas ne rend qu'un seul champ
+    // invalide, tous les autres restant valides.
+    it.each([
+      ["id", { id: 42 }],
+      ["title", { title: 42 }],
+      ["size", { size: "3" }],
+      ["items", { items: "nope" }],
+      ["cells", { cells: "nope" }],
+    ])("lève une erreur si %s est le seul champ invalide d'une grille", async (_field, override) => {
+      vi.mocked(fetch).mockResolvedValue(
+        jsonResponse({ version: 1, grids: [{ ...makeGrid(), ...override }] })
+      );
+      await expect(fetchSyncState(WORKER_URL, "ABCDEFGH")).rejects.toThrow(
+        new Error("Réponse du serveur invalide.")
+      );
+    });
   });
 
   describe("pushSyncState", () => {
@@ -155,6 +215,20 @@ describe("appels réseau", () => {
       await expect(pushSyncState(WORKER_URL, "ABCDEFGH", { baseVersion: 1, grids: [] })).rejects.toThrow(
         "Impossible de synchroniser"
       );
+    });
+
+    it("lève une erreur si le state accepté n'a pas la forme attendue", async () => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse({ version: 1, grids: [{ oups: true }] }));
+      await expect(
+        pushSyncState(WORKER_URL, "ABCDEFGH", { baseVersion: 0, grids: [] })
+      ).rejects.toThrow(new Error("Réponse du serveur invalide."));
+    });
+
+    it("lève une erreur si le state renvoyé sur un rejet (409) n'a pas la forme attendue", async () => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse({ version: 1, grids: [{ oups: true }] }, 409));
+      await expect(
+        pushSyncState(WORKER_URL, "ABCDEFGH", { baseVersion: 0, grids: [] })
+      ).rejects.toThrow(new Error("Réponse du serveur invalide."));
     });
   });
 });

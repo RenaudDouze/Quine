@@ -59,6 +59,51 @@ async function readJsonOrThrow(response: Response): Promise<unknown> {
   }
 }
 
+// Vérifie juste assez la forme pour rendre une grille sans planter (id/titre
+// exploitables comme texte, items/cells bien des tableaux) — même niveau de
+// rigueur que isValidGrid côté import (voir share.ts). N'importe quel
+// partenaire de synchro connaissant le code peut écrire dans ce state (pas
+// d'authentification, voir worker/README.md) : rien ne garantit sa forme au-
+// delà de ce que le worker vérifie lui-même (voir isValidPushRequest côté
+// worker, qui ne valide que baseVersion/grids, pas le contenu de chaque
+// grille).
+function isValidGridShape(value: unknown): value is Grid {
+  // Stryker disable next-line ConditionalExpression: `typeof value !==
+  // "object"` est nécessaire pour rejeter les valeurs faussement acceptées
+  // par un simple `!value` (ex: `null`, unique cas où `typeof` vaut déjà
+  // "object"), mais son propre mutant (le désactiver) est indétectable dans
+  // ce contexte précis : la seule source de `value` est du JSON désérialisé
+  // (voir readJsonOrThrow), qui ne produit jamais qu'un objet/tableau, ou un
+  // primitif (chaîne/nombre/booléen) qui ne peut structurellement porter de
+  // propriété `id`/`title`/... — l'accès à ces propriétés y vaut toujours
+  // `undefined`, donc les vérifications suivantes rejettent quand même la
+  // valeur, que ce garde soit actif ou non.
+  if (!value || typeof value !== "object") return false;
+  const g = value as Record<string, unknown>;
+  return (
+    typeof g.id === "string" &&
+    typeof g.title === "string" &&
+    typeof g.size === "number" &&
+    Array.isArray(g.items) &&
+    Array.isArray(g.cells)
+  );
+}
+
+function isValidSyncState(value: unknown): value is SyncState {
+  // Stryker disable next-line ConditionalExpression: même raisonnement que
+  // dans isValidGridShape ci-dessus — équivalent indétectable pour toute
+  // valeur réellement atteignable (JSON désérialisé).
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.version === "number" && Array.isArray(v.grids) && v.grids.every(isValidGridShape);
+}
+
+async function readValidSyncState(response: Response): Promise<SyncState> {
+  const body = await readJsonOrThrow(response);
+  if (!isValidSyncState(body)) throw new Error("Réponse du serveur invalide.");
+  return body;
+}
+
 /** Construit le message d'une requête en échec : ajoute le détail renvoyé
  * par le worker (voir `detail` dans sa réponse d'erreur générique — la seule
  * information de diagnostic disponible sur un appareil sans accès à la
@@ -91,7 +136,7 @@ export async function fetchSyncState(workerUrl: string, code: string): Promise<S
   if (response.status === 404) return null;
   if (!response.ok)
     throw new Error(await errorMessageFor(response, "Impossible de récupérer les grilles synchronisées."));
-  return (await readJsonOrThrow(response)) as SyncState;
+  return readValidSyncState(response);
 }
 
 export interface PushResult {
@@ -110,7 +155,7 @@ export async function pushSyncState(workerUrl: string, code: string, push: PushR
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(push),
   });
-  if (response.status === 409) return { accepted: false, state: (await readJsonOrThrow(response)) as SyncState };
+  if (response.status === 409) return { accepted: false, state: await readValidSyncState(response) };
   if (!response.ok) throw new Error(await errorMessageFor(response, "Impossible de synchroniser les grilles."));
-  return { accepted: true, state: (await readJsonOrThrow(response)) as SyncState };
+  return { accepted: true, state: await readValidSyncState(response) };
 }
