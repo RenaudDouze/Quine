@@ -79,8 +79,11 @@ export default function GridCard({
   }, [bannerVisible]);
   /* oxlint-enable react/set-state-in-effect */
 
+  // Une case gratuite est désormais `disabled` (voir plus bas) : le
+  // navigateur ne déclenche jamais onClick dessus, donc toggleCell n'est
+  // plus appelée que pour une case togglable — plus besoin d'y revérifier
+  // `free` en interne.
   function toggleCell(i: number) {
-    if (grid.cells[i].free) return;
     const wasMarked = grid.cells[i].marked;
     const cells = grid.cells.map((c, idx) => (idx === i ? { ...c, marked: !c.marked } : c));
 

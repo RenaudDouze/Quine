@@ -292,10 +292,11 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   // plus haut, dont cette fonction partage la même contrainte de cohérence) :
   // échange deux grilles adjacentes dans la liste triée affichée, exactement
   // comme le fait `Reorder.Group` ci-dessous via `onReorder={persist}`.
+  // `index`/`target` sont toujours valides ici : GridCard ne fournit
+  // onMoveUp/onMoveDown (voir plus bas) que lorsqu'ils le sont déjà.
   function moveGrid(id: string, direction: -1 | 1) {
     const index = sortedGrids.findIndex((g) => g.id === id);
     const target = index + direction;
-    if (index === -1 || target < 0 || target >= sortedGrids.length) return;
     const next = sortedGrids.slice();
     [next[index], next[target]] = [next[target], next[index]];
     persist(next);
