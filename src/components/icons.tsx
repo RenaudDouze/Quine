@@ -88,6 +88,20 @@ export function FullscreenIcon(props: IconProps) {
   );
 }
 
+/** Mode focus : réticule de mise au point, pour le distinguer du plein
+ * écran natif (FullscreenIcon ci-dessus, flèches d'angle). Comme +1. */
+export function FocusIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3v3" />
+      <path d="M12 18v3" />
+      <path d="M3 12h3" />
+      <path d="M18 12h3" />
+    </svg>
+  );
+}
+
 /** Actives = visible/affichée, Archivées = mises de côté (hors de vue) : une
  * paire différente du contenant ouvert/fermé (dossier, bac) essayés avant. */
 export function EyeIcon(props: IconProps) {
@@ -130,6 +144,25 @@ export function DragHandleIcon(props: IconProps) {
       <circle cx="15" cy="12" r="1.5" />
       <circle cx="9" cy="18" r="1.5" />
       <circle cx="15" cy="18" r="1.5" />
+    </svg>
+  );
+}
+
+/** Réordonner au clavier : chevrons haut/bas, alternative accessible à la
+ * poignée de glisser-déposer (pointer-only) — sans équivalent chez +1, où le
+ * glisser-déposer reste la seule méthode de réordonnancement. */
+export function ChevronUpIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <polyline points="5 15 12 8 19 15" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <svg {...BASE} {...STROKE} {...props}>
+      <polyline points="5 9 12 16 19 9" />
     </svg>
   );
 }

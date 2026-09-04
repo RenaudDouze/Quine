@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { COLORS } from "../lib/colors";
 import type { Grid } from "../lib/bingo";
 import { isValidImageUrl } from "../lib/url";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { ArchiveIcon, CloseIcon, DuplicateIcon, EyeIcon, PinIcon, ResetIcon, ShuffleIcon, TrashIcon } from "./icons";
 
 interface Props {
@@ -31,6 +32,9 @@ export default function CustomizeModal({
   const [draftBackground, setDraftBackground] = useState(grid.backgroundImageUrl ?? "");
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const locked = !!grid.archived;
+  const titleId = useId();
+  const backgroundErrorId = useId();
+  const panelRef = useFocusTrap<HTMLDivElement>();
 
   function commitTitle() {
     const trimmed = draftTitle.trim() || "Grille de Quine";
@@ -99,9 +103,17 @@ export default function CustomizeModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={panelRef}
+        className="modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-panel-header">
-          <h2>Personnaliser « {grid.title} »</h2>
+          <h2 id={titleId}>Personnaliser « {grid.title} »</h2>
           <button className="modal-close" onClick={onClose} aria-label="Fermer">
             <CloseIcon />
           </button>
@@ -155,7 +167,9 @@ export default function CustomizeModal({
               inputMode="url"
               className="modal-input"
               disabled={locked}
+              aria-label="URL de l'image de fond"
               aria-invalid={backgroundError !== null}
+              aria-describedby={backgroundError ? backgroundErrorId : undefined}
               value={draftBackground}
               placeholder="https://exemple.com/image.jpg"
               onChange={(e) => {
@@ -178,7 +192,11 @@ export default function CustomizeModal({
               </button>
             )}
           </div>
-          {backgroundError && <p className="modal-error">{backgroundError}</p>}
+          {backgroundError && (
+            <p id={backgroundErrorId} className="modal-error">
+              {backgroundError}
+            </p>
+          )}
         </section>
 
         <section className="modal-section">

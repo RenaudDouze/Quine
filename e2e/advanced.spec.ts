@@ -76,13 +76,35 @@ test('enters and exits focus mode on the home screen, hiding the topbar', async 
   await page.goto('/')
 
   await openMenu(page)
-  await page.getByRole('button', { name: 'Mode plein écran' }).click()
+  await page.getByRole('button', { name: 'Mode focus' }).click()
   await expect(page.getByRole('button', { name: '+ Nouvelle grille' })).not.toBeVisible()
-  await expect(page.getByRole('button', { name: 'Quitter le mode plein écran' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Quitter le mode focus' })).toBeVisible()
   await expect(page.getByText('Plein écran accueil')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Quitter le mode plein écran' }).click()
+  await page.getByRole('button', { name: 'Quitter le mode focus' }).click()
   await expect(page.getByRole('button', { name: '+ Nouvelle grille' })).toBeVisible()
+})
+
+test("le plein écran de l'appareil est indépendant du mode focus", async ({ page }) => {
+  await createGrid(page, {
+    title: 'Grille',
+    size: 3,
+    items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
+  })
+  await page.goto('/')
+
+  // Seul, il ne masque pas l'en-tête (contrairement au mode focus).
+  await openMenu(page)
+  await page.getByRole('button', { name: 'Plein écran' }).click()
+  await expect(page.getByRole('button', { name: '+ Nouvelle grille' })).toBeVisible()
+
+  // Combiné au mode focus, le bouton de sortie de celui-ci ramène aussi le
+  // libellé "Plein écran" à son état initial (quitte les deux d'un coup).
+  await openMenu(page)
+  await page.getByRole('button', { name: 'Mode focus' }).click()
+  await page.getByRole('button', { name: 'Quitter le mode focus' }).click()
+  await openMenu(page)
+  await expect(page.getByRole('button', { name: 'Plein écran' })).toBeVisible()
 })
 
 test('exports the current grid as an SVG image', async ({ page }) => {

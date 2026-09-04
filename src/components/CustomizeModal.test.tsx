@@ -95,6 +95,45 @@ describe("CustomizeModal", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  describe("accessibilité", () => {
+    it("expose une boîte de dialogue modale, nommée par son titre", () => {
+      renderModal({ title: "Grille du vendredi" });
+      const dialog = screen.getByRole("dialog", { name: 'Personnaliser « Grille du vendredi »' });
+      expect(dialog).toHaveAttribute("aria-modal", "true");
+    });
+
+    it("déplace le focus dans la modale au montage", () => {
+      renderModal();
+      expect(screen.getByRole("button", { name: "Fermer" })).toHaveFocus();
+    });
+
+    it("restaure le focus sur l'élément déclencheur à la fermeture", () => {
+      const trigger = document.createElement("button");
+      trigger.textContent = "Personnaliser";
+      document.body.appendChild(trigger);
+      trigger.focus();
+
+      const { unmount } = render(
+        <CustomizeModal
+          grid={makeGrid()}
+          onClose={vi.fn()}
+          onUpdate={vi.fn()}
+          onShuffle={vi.fn()}
+          onReset={vi.fn()}
+          onTogglePin={vi.fn()}
+          onToggleArchive={vi.fn()}
+          onDuplicate={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      );
+      expect(trigger).not.toHaveFocus();
+
+      unmount();
+      expect(trigger).toHaveFocus();
+      trigger.remove();
+    });
+  });
+
   it("does not show the locked hint for an active grid", () => {
     renderModal({ archived: false });
     expect(screen.queryByText(/lecture seule|archivée/i)).not.toBeInTheDocument();
@@ -243,6 +282,23 @@ describe("CustomizeModal", () => {
     fireEvent.blur(input);
     expect(onUpdate).not.toHaveBeenCalled();
     expect(screen.getByText(/url http\(s\) invalide/i)).toBeInTheDocument();
+  });
+
+  it("labels the background URL field for screen readers, not just via its placeholder (an example value, not a description)", () => {
+    renderModal();
+    expect(screen.getByRole("textbox", { name: "URL de l'image de fond" })).toBeInTheDocument();
+  });
+
+  it("links the background URL field to its validation error via aria-describedby, so screen readers announce why it's invalid", () => {
+    renderModal();
+    const input = screen.getByPlaceholderText(/exemple.com/i);
+    expect(input).not.toHaveAttribute("aria-describedby");
+
+    fireEvent.change(input, { target: { value: "not a url" } });
+    fireEvent.blur(input);
+    const errorId = input.getAttribute("aria-describedby");
+    expect(errorId).toBeTruthy();
+    expect(document.getElementById(errorId!)).toHaveTextContent(/url http\(s\) invalide/i);
   });
 
   it("clears the error as soon as the input changes again", () => {

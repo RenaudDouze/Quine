@@ -480,6 +480,16 @@ describe("HomeView", () => {
       expect(screen.getByText("Bingo vacances")).toBeInTheDocument();
     });
 
+    it("labels the search field for screen readers, not just via its placeholder", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ title: "Bingo réunion" })]);
+      renderHome();
+      openMenu();
+      await user.click(screen.getByRole("button", { name: "Rechercher" }));
+
+      expect(screen.getByRole("textbox", { name: "Rechercher une grille" })).toBeInTheDocument();
+    });
+
     it("shows a no-match message when nothing matches the query", async () => {
       const user = userEvent.setup();
       saveGrids([makeGrid({ title: "Bingo réunion" })]);
@@ -541,6 +551,72 @@ describe("HomeView", () => {
       ]);
       renderHome();
       expect(screen.queryByRole("button", { name: "Réordonner" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("réordonnancement au clavier (alternative au glisser-déposer, pointer-only)", () => {
+    function cardIds() {
+      return Array.from(document.querySelectorAll<HTMLElement>("[data-grid-id]")).map((el) =>
+        el.getAttribute("data-grid-id")
+      );
+    }
+
+    it("moves a grid up and persists the new order", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha" }),
+        makeGrid({ id: "b", title: "Bravo" }),
+        makeGrid({ id: "c", title: "Charlie" }),
+      ]);
+      renderHome();
+      expect(cardIds()).toEqual(["a", "b", "c"]);
+
+      await user.click(screen.getAllByRole("button", { name: "Monter" })[1]);
+
+      expect(cardIds()).toEqual(["b", "a", "c"]);
+      expect(loadGrids().map((g) => g.id)).toEqual(["b", "a", "c"]);
+    });
+
+    it("moves a grid down and persists the new order", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha" }),
+        makeGrid({ id: "b", title: "Bravo" }),
+        makeGrid({ id: "c", title: "Charlie" }),
+      ]);
+      renderHome();
+
+      await user.click(screen.getAllByRole("button", { name: "Descendre" })[0]);
+
+      expect(cardIds()).toEqual(["b", "a", "c"]);
+      expect(loadGrids().map((g) => g.id)).toEqual(["b", "a", "c"]);
+    });
+
+    it("disables Monter on the first card and Descendre on the last card", () => {
+      saveGrids([makeGrid({ id: "a", title: "Alpha" }), makeGrid({ id: "b", title: "Bravo" })]);
+      renderHome();
+
+      const upButtons = screen.getAllByRole("button", { name: "Monter" });
+      const downButtons = screen.getAllByRole("button", { name: "Descendre" });
+      expect(upButtons[0]).toBeDisabled();
+      expect(downButtons[0]).not.toBeDisabled();
+      expect(upButtons[1]).not.toBeDisabled();
+      expect(downButtons[1]).toBeDisabled();
+    });
+
+    it("keeps a pinned grid first when moved, since Monter/Descendre reorder within the same pinned-first display order as drag-and-drop", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha", pinned: true }),
+        makeGrid({ id: "b", title: "Bravo" }),
+        makeGrid({ id: "c", title: "Charlie" }),
+      ]);
+      renderHome();
+      expect(cardIds()).toEqual(["a", "b", "c"]);
+
+      await user.click(screen.getAllByRole("button", { name: "Descendre" })[1]);
+
+      expect(cardIds()).toEqual(["a", "c", "b"]);
     });
   });
 
@@ -675,18 +751,11 @@ describe("HomeView", () => {
     });
   });
 
-  describe("mode plein écran", () => {
-    afterEach(() => {
-      // @ts-expect-error -- pas typé sur Document par défaut, ajouté par le composant
-      delete document.documentElement.requestFullscreen;
-      // @ts-expect-error -- idem
-      delete document.exitFullscreen;
-    });
-
+  describe("mode focus", () => {
     it("is not offered when there are no grids", () => {
       renderHome();
       openMenu();
-      expect(screen.queryByRole("button", { name: "Mode plein écran" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Mode focus" })).not.toBeInTheDocument();
     });
 
     it("hides the topbar and shows an exit button while active", async () => {
@@ -694,10 +763,10 @@ describe("HomeView", () => {
       saveGrids([makeGrid()]);
       renderHome();
       openMenu();
-      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+      await user.click(screen.getByRole("button", { name: "Mode focus" }));
 
       expect(screen.queryByRole("button", { name: "+ Nouvelle grille" })).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Quitter le mode plein écran" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Quitter le mode focus" })).toBeInTheDocument();
       expect(screen.getByText("Ma grille")).toBeInTheDocument();
     });
 
@@ -706,8 +775,8 @@ describe("HomeView", () => {
       saveGrids([makeGrid()]);
       renderHome();
       openMenu();
-      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
-      await user.click(screen.getByRole("button", { name: "Quitter le mode plein écran" }));
+      await user.click(screen.getByRole("button", { name: "Mode focus" }));
+      await user.click(screen.getByRole("button", { name: "Quitter le mode focus" }));
 
       expect(screen.getByRole("button", { name: "+ Nouvelle grille" })).toBeInTheDocument();
     });
@@ -717,7 +786,7 @@ describe("HomeView", () => {
       saveGrids([makeGrid()]);
       renderHome();
       openMenu();
-      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+      await user.click(screen.getByRole("button", { name: "Mode focus" }));
       fireEvent.keyDown(document, { key: "Escape" });
 
       expect(screen.getByRole("button", { name: "+ Nouvelle grille" })).toBeInTheDocument();
@@ -728,10 +797,10 @@ describe("HomeView", () => {
       saveGrids([makeGrid()]);
       renderHome();
       openMenu();
-      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+      await user.click(screen.getByRole("button", { name: "Mode focus" }));
       fireEvent.keyDown(document, { key: "Enter" });
 
-      expect(screen.getByRole("button", { name: "Quitter le mode plein écran" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Quitter le mode focus" })).toBeInTheDocument();
     });
 
     it("ignores Escape while not active", () => {
@@ -742,111 +811,124 @@ describe("HomeView", () => {
       expect(screen.getByRole("button", { name: "+ Nouvelle grille" })).toBeInTheDocument();
     });
 
-    it("requests native fullscreen when entering focus mode", async () => {
+    it("does not request native fullscreen — it only hides the header, staying inside the browser window", async () => {
       const user = userEvent.setup();
       const requestFullscreen = vi.fn().mockResolvedValue(undefined);
       document.documentElement.requestFullscreen = requestFullscreen;
       saveGrids([makeGrid()]);
       renderHome();
       openMenu();
-      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
+      await user.click(screen.getByRole("button", { name: "Mode focus" }));
+
+      expect(requestFullscreen).not.toHaveBeenCalled();
+      // @ts-expect-error -- pas typé sur Document par défaut, ajouté par ce test
+      delete document.documentElement.requestFullscreen;
+    });
+  });
+
+  describe("plein écran de l'appareil", () => {
+    // `document.fullscreenElement` est en lecture seule dans jsdom : on la
+    // redéfinit pour simuler l'état plein écran natif du navigateur.
+    function stubFullscreenElement(value: Element | null) {
+      Object.defineProperty(document, "fullscreenElement", { value, configurable: true });
+    }
+
+    afterEach(() => {
+      stubFullscreenElement(null);
+      // @ts-expect-error -- pas typé sur Document par défaut, ajouté par le composant
+      delete document.documentElement.requestFullscreen;
+      // @ts-expect-error -- idem
+      delete document.exitFullscreen;
+    });
+
+    it("is not offered when there are no grids", () => {
+      renderHome();
+      openMenu();
+      expect(screen.queryByRole("button", { name: "Plein écran" })).not.toBeInTheDocument();
+    });
+
+    it("requests native fullscreen when activated, and silently ignores a refusal", async () => {
+      const user = userEvent.setup();
+      const requestFullscreen = vi.fn().mockRejectedValue(new Error("refusé"));
+      document.documentElement.requestFullscreen = requestFullscreen;
+      saveGrids([makeGrid()]);
+      renderHome();
+      openMenu();
+      await act(async () => {
+        await user.click(screen.getByRole("button", { name: "Plein écran" }));
+      });
 
       expect(requestFullscreen).toHaveBeenCalledTimes(1);
-    });
-
-    it("silently ignores a rejected fullscreen request", async () => {
-      const user = userEvent.setup();
-      document.documentElement.requestFullscreen = vi.fn().mockRejectedValue(new Error("nope"));
-      saveGrids([makeGrid()]);
-      renderHome();
       openMenu();
-      await act(async () => {
-        await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
-      });
-
-      expect(screen.getByRole("button", { name: "Quitter le mode plein écran" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Quitter le plein écran" })).toBeInTheDocument();
     });
 
-    it("exits native fullscreen when leaving focus mode while still in it", async () => {
+    it("exits native fullscreen on re-click, and silently ignores a refusal", async () => {
       const user = userEvent.setup();
-      document.documentElement.requestFullscreen = vi.fn().mockResolvedValue(undefined);
-      const exitFullscreen = vi.fn().mockResolvedValue(undefined);
+      const exitFullscreen = vi.fn().mockRejectedValue(new Error("refusé"));
       document.exitFullscreen = exitFullscreen;
       saveGrids([makeGrid()]);
       renderHome();
       openMenu();
-      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
-
-      Object.defineProperty(document, "fullscreenElement", {
-        value: document.documentElement,
-        configurable: true,
+      await user.click(screen.getByRole("button", { name: "Plein écran" }));
+      stubFullscreenElement(document.body);
+      openMenu();
+      await act(async () => {
+        await user.click(screen.getByRole("button", { name: "Quitter le plein écran" }));
       });
-      await user.click(screen.getByRole("button", { name: "Quitter le mode plein écran" }));
 
       expect(exitFullscreen).toHaveBeenCalledTimes(1);
-      Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
     });
 
-    it("does not call exitFullscreen when leaving focus mode outside of native fullscreen", async () => {
+    it("resynchronizes its state when native fullscreen is exited some other way than our button", () => {
+      saveGrids([makeGrid()]);
+      renderHome();
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Plein écran" }));
+      stubFullscreenElement(null);
+      fireEvent(document, new Event("fullscreenchange"));
+      openMenu();
+
+      expect(screen.getByRole("button", { name: "Plein écran" })).toBeInTheDocument();
+    });
+
+    it("ignores a fullscreenchange event while native fullscreen is still active", () => {
+      saveGrids([makeGrid()]);
+      renderHome();
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Plein écran" }));
+      stubFullscreenElement(document.body);
+      fireEvent(document, new Event("fullscreenchange"));
+      openMenu();
+
+      expect(screen.getByRole("button", { name: "Quitter le plein écran" })).toBeInTheDocument();
+    });
+
+    it("is independent from focus mode: activating it alone does not hide the header", () => {
+      saveGrids([makeGrid()]);
+      renderHome();
+      openMenu();
+      fireEvent.click(screen.getByRole("button", { name: "Plein écran" }));
+
+      expect(screen.getByRole("button", { name: "+ Nouvelle grille" })).toBeInTheDocument();
+    });
+
+    it("is also exited by focus mode's own exit button, when both are active together", async () => {
       const user = userEvent.setup();
       const exitFullscreen = vi.fn().mockResolvedValue(undefined);
       document.exitFullscreen = exitFullscreen;
       saveGrids([makeGrid()]);
       renderHome();
       openMenu();
-      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
-      await user.click(screen.getByRole("button", { name: "Quitter le mode plein écran" }));
-
-      expect(exitFullscreen).not.toHaveBeenCalled();
-    });
-
-    it("silently ignores a rejected exitFullscreen call", async () => {
-      const user = userEvent.setup();
-      document.exitFullscreen = vi.fn().mockRejectedValue(new Error("nope"));
-      saveGrids([makeGrid()]);
-      renderHome();
+      await user.click(screen.getByRole("button", { name: "Plein écran" }));
+      stubFullscreenElement(document.body);
       openMenu();
-      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
-
-      Object.defineProperty(document, "fullscreenElement", {
-        value: document.documentElement,
-        configurable: true,
-      });
+      await user.click(screen.getByRole("button", { name: "Mode focus" }));
       await act(async () => {
-        await user.click(screen.getByRole("button", { name: "Quitter le mode plein écran" }));
+        await user.click(screen.getByRole("button", { name: "Quitter le mode focus" }));
       });
 
-      expect(screen.getByRole("button", { name: "+ Nouvelle grille" })).toBeInTheDocument();
-      Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
-    });
-
-    it("syncs back to the normal view when fullscreen is exited natively (fullscreenchange event)", async () => {
-      const user = userEvent.setup();
-      saveGrids([makeGrid()]);
-      renderHome();
-      openMenu();
-      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
-
-      fireEvent(document, new Event("fullscreenchange"));
-
-      expect(screen.getByRole("button", { name: "+ Nouvelle grille" })).toBeInTheDocument();
-    });
-
-    it("does not react to fullscreenchange while still in native fullscreen", async () => {
-      const user = userEvent.setup();
-      saveGrids([makeGrid()]);
-      renderHome();
-      openMenu();
-      await user.click(screen.getByRole("button", { name: "Mode plein écran" }));
-
-      Object.defineProperty(document, "fullscreenElement", {
-        value: document.documentElement,
-        configurable: true,
-      });
-      fireEvent(document, new Event("fullscreenchange"));
-
-      expect(screen.queryByRole("button", { name: "+ Nouvelle grille" })).not.toBeInTheDocument();
-      Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+      expect(exitFullscreen).toHaveBeenCalledTimes(1);
     });
   });
 

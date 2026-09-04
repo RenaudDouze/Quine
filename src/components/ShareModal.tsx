@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import QRCode from "qrcode";
 import type { Grid } from "../lib/bingo";
 import { downloadGridSvg } from "../lib/gridImage";
@@ -6,6 +6,7 @@ import { printGrid } from "../lib/print";
 import { formatSyncCode } from "../lib/remoteSync";
 import { buildShareUrl, downloadBackup, parseBackupJson } from "../lib/share";
 import type { UseRemoteSyncResult } from "../hooks/useRemoteSync";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { CheckIcon, CloseIcon, ImageIcon, PrintIcon, ShareIcon } from "./icons";
 
 interface Props {
@@ -47,6 +48,8 @@ export default function ShareModal({
   onClose,
   remoteSync,
 }: Props) {
+  const titleId = useId();
+  const panelRef = useFocusTrap<HTMLDivElement>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState("");
@@ -127,9 +130,17 @@ export default function ShareModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={panelRef}
+        className="modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-panel-header">
-          <h2>{heading}</h2>
+          <h2 id={titleId}>{heading}</h2>
           <button className="modal-close" onClick={onClose} aria-label="Fermer">
             <CloseIcon />
           </button>

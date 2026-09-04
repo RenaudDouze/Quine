@@ -78,6 +78,33 @@ describe("ShareModal", () => {
     expect(screen.getByText("Indice")).toBeInTheDocument();
   });
 
+  describe("accessibilité", () => {
+    it("expose une boîte de dialogue modale, nommée par son titre", () => {
+      render(<ShareModal {...defaultProps} grids={[]} onClose={vi.fn()} />);
+      const dialog = screen.getByRole("dialog", { name: "Titre" });
+      expect(dialog).toHaveAttribute("aria-modal", "true");
+    });
+
+    it("déplace le focus dans la modale au montage", () => {
+      render(<ShareModal {...defaultProps} grids={[]} onClose={vi.fn()} />);
+      expect(screen.getByRole("button", { name: "Fermer" })).toHaveFocus();
+    });
+
+    it("restaure le focus sur l'élément déclencheur à la fermeture", () => {
+      const trigger = document.createElement("button");
+      trigger.textContent = "Partager";
+      document.body.appendChild(trigger);
+      trigger.focus();
+
+      const { unmount } = render(<ShareModal {...defaultProps} grids={[]} onClose={vi.fn()} />);
+      expect(trigger).not.toHaveFocus();
+
+      unmount();
+      expect(trigger).toHaveFocus();
+      trigger.remove();
+    });
+  });
+
   it("affiche l'indice vide quand il n'y a rien à partager", () => {
     render(<ShareModal {...defaultProps} grids={[]} onClose={vi.fn()} />);
     expect(screen.getByText("Rien à partager")).toBeInTheDocument();
