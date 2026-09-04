@@ -1,9 +1,23 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { COLORS } from "../lib/colors";
 import type { Grid } from "../lib/bingo";
 import { isValidImageUrl } from "../lib/url";
 import { useFocusTrap } from "../hooks/useFocusTrap";
-import { ArchiveIcon, CloseIcon, DuplicateIcon, EyeIcon, PinIcon, ResetIcon, ShuffleIcon, TrashIcon } from "./icons";
+import {
+  ArchiveIcon,
+  CheckIcon,
+  CloseIcon,
+  DuplicateIcon,
+  EyeIcon,
+  PinIcon,
+  ResetIcon,
+  ShuffleIcon,
+  TrashIcon,
+} from "./icons";
+
+// Fenêtre pendant laquelle un deuxième clic sur Supprimer confirme la
+// suppression, avant que le bouton ne revienne à son état initial.
+const CONFIRM_DELETE_TIMEOUT_MS = 2500;
 
 interface Props {
   grid: Grid;
@@ -35,6 +49,12 @@ export default function CustomizeModal({
   const titleId = useId();
   const backgroundErrorId = useId();
   const panelRef = useFocusTrap<HTMLDivElement>();
+  // Supprimer une grille est irréversible dans l'instant (voir le toast
+  // d'annulation, plus tardif et plus discret) : un premier clic arme le
+  // bouton plutôt que de supprimer directement, un second clic dans la
+  // fenêtre ci-dessus confirme. Comme dans +1.
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const confirmDeleteTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   function commitTitle() {
     const trimmed = draftTitle.trim() || "Grille de Quine";
@@ -96,9 +116,15 @@ export default function CustomizeModal({
     onClose();
   }
 
-  function handleDelete() {
-    onDelete();
-    onClose();
+  function handleDeleteClick() {
+    if (confirmDelete) {
+      clearTimeout(confirmDeleteTimer.current);
+      onDelete();
+      onClose();
+      return;
+    }
+    setConfirmDelete(true);
+    confirmDeleteTimer.current = setTimeout(() => setConfirmDelete(false), CONFIRM_DELETE_TIMEOUT_MS);
   }
 
   return (
@@ -227,8 +253,22 @@ export default function CustomizeModal({
 
         <section className="modal-section modal-section--danger">
           <h3>Zone de danger</h3>
-          <button type="button" className="modal-btn modal-btn--danger" onClick={handleDelete}>
-            <TrashIcon width={16} height={16} /> Supprimer cette grille
+          <button
+            type="button"
+            className="modal-btn modal-btn--danger"
+            onClick={handleDeleteClick}
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {confirmDelete ? (
+              <>
+                <CheckIcon width={16} height={16} /> Confirmer la suppression
+              </>
+            ) : (
+              <>
+                <TrashIcon width={16} height={16} /> Supprimer cette grille
+              </>
+            )}
           </button>
         </section>
       </div>
