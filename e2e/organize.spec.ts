@@ -57,12 +57,15 @@ test('archives a grid, moving it to the archived view, and can unarchive it', as
   await expect(page.getByText('À archiver', { exact: true })).toBeVisible()
 })
 
-test('deletes a grid instantly and restores it via the undo toast', async ({ page }) => {
+test('requires a confirming second click before deleting a grid, then restores it via the undo toast', async ({ page }) => {
   await createGrid(page, { title: 'À restaurer', size: 3, items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] })
   await page.goto('/')
 
   await customize(page, 'À restaurer')
   await page.getByRole('button', { name: /Supprimer cette grille/ }).click()
+  await expect(page.getByText('À restaurer', { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: /Confirmer la suppression/ }).click()
   await expect(page.getByText('À restaurer', { exact: true })).not.toBeVisible()
 
   await expect(page.getByText(/supprimée/)).toBeVisible()

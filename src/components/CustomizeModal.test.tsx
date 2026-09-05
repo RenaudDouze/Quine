@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Grid } from "../lib/bingo";
@@ -377,11 +377,36 @@ describe("CustomizeModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("deletes the grid and closes when Supprimer is clicked", async () => {
-    const user = userEvent.setup();
-    const { onDelete, onClose } = renderModal();
-    await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
-    expect(onDelete).toHaveBeenCalledTimes(1);
-    expect(onClose).toHaveBeenCalledTimes(1);
+  describe("suppression", () => {
+    it("asks for confirmation before deleting, rather than deleting on the first click", async () => {
+      const user = userEvent.setup();
+      const { onDelete } = renderModal();
+      await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      expect(onDelete).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: /Confirmer la suppression/ })).toBeInTheDocument();
+    });
+
+    it("deletes the grid and closes on the second, confirming click", async () => {
+      const user = userEvent.setup();
+      const { onDelete, onClose } = renderModal();
+      await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      await user.click(screen.getByRole("button", { name: /Confirmer la suppression/ }));
+      expect(onDelete).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("reverts to the initial label if not confirmed within the grace window", () => {
+      vi.useFakeTimers();
+      renderModal();
+      fireEvent.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      expect(screen.getByRole("button", { name: /Confirmer la suppression/ })).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(2600);
+      });
+
+      expect(screen.getByRole("button", { name: /Supprimer cette grille/ })).toBeInTheDocument();
+      vi.useRealTimers();
+    });
   });
 });

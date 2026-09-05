@@ -150,6 +150,7 @@ test('can edit, duplicate and delete a saved grid from the home screen', async (
     .filter({ has: page.getByText('À dupliquer (copie)', { exact: true }) })
   await copyCard.getByRole('button', { name: 'Personnaliser', exact: true }).click()
   await page.getByRole('button', { name: /Supprimer cette grille/ }).click()
+  await page.getByRole('button', { name: /Confirmer la suppression/ }).click()
   await expect(page.getByText('À dupliquer (copie)', { exact: true })).toHaveCount(0)
   await expect(page.getByText(/supprimée/)).toBeVisible()
 })

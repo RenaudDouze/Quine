@@ -183,12 +183,25 @@ describe("HomeView", () => {
   );
 
   describe("suppression et annulation", () => {
-    it("deletes a grid immediately (no confirmation dialog) and shows an undo toast", async () => {
+    it("requires a confirming second click before deleting a grid", async () => {
       const user = userEvent.setup();
       saveGrids([makeGrid({ id: "g1", title: "À virer" })]);
       renderHome();
       await openCustomize(user, "À virer");
       await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+
+      expect(screen.getByText("À virer")).toBeInTheDocument();
+      expect(loadGrids()).toHaveLength(1);
+      expect(screen.getByRole("button", { name: /Confirmer la suppression/ })).toBeInTheDocument();
+    });
+
+    it("deletes a grid on the confirming click and shows an undo toast", async () => {
+      const user = userEvent.setup();
+      saveGrids([makeGrid({ id: "g1", title: "À virer" })]);
+      renderHome();
+      await openCustomize(user, "À virer");
+      await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      await user.click(screen.getByRole("button", { name: /Confirmer la suppression/ }));
 
       expect(screen.queryByText("À virer")).not.toBeInTheDocument();
       expect(loadGrids()).toHaveLength(0);
@@ -201,6 +214,7 @@ describe("HomeView", () => {
       renderHome();
       await openCustomize(user, "À restaurer");
       await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      await user.click(screen.getByRole("button", { name: /Confirmer la suppression/ }));
       await user.click(screen.getByRole("button", { name: "Annuler" }));
 
       expect(screen.getByText("À restaurer")).toBeInTheDocument();
@@ -213,6 +227,7 @@ describe("HomeView", () => {
       renderHome();
       await openCustomize(user, "À virer");
       await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      await user.click(screen.getByRole("button", { name: /Confirmer la suppression/ }));
       await user.click(screen.getByRole("button", { name: "Annuler" }));
 
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
@@ -224,6 +239,7 @@ describe("HomeView", () => {
       renderHome();
       fireEvent.click(screen.getByRole("button", { name: "Personnaliser" }));
       fireEvent.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Confirmer la suppression/ }));
       expect(screen.getByRole("status")).toBeInTheDocument();
 
       act(() => {
