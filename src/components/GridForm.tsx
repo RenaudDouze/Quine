@@ -52,6 +52,10 @@ export default function GridForm({ initial, submitLabel, onSubmit }: Props) {
 
   return (
     <form className="editor" onSubmit={handleSubmit}>
+      <p className="privacy-notice">
+        Ces données ne sont ni chiffrées ni protégées : n'y mets rien de privé ou de sensible.
+      </p>
+
       <label className="field">
         <span>Taille de la grille</span>
         <select value={size} onChange={(e) => handleSizeChange(Number(e.target.value))}>

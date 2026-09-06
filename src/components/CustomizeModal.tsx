@@ -145,6 +145,10 @@ export default function CustomizeModal({
           </button>
         </div>
 
+        <p className="privacy-notice">
+          Ces données ne sont ni chiffrées ni protégées : n'y mets rien de privé ou de sensible.
+        </p>
+
         {locked && (
           <p className="modal-hint modal-hint--locked">
             🔒 Grille archivée : désarchive-la pour changer sa couleur ou son image de fond.

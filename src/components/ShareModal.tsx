@@ -146,6 +146,10 @@ export default function ShareModal({
           </button>
         </div>
 
+        <p className="privacy-notice">
+          Ces données ne sont ni chiffrées ni protégées : n'y mets rien de privé ou de sensible.
+        </p>
+
         {remoteSync && import.meta.env.VITE_SYNC_WORKER_URL && (
           <section className="modal-section">
             <h3>Code de synchro</h3>

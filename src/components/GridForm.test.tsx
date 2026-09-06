@@ -8,6 +8,11 @@ afterEach(() => {
 });
 
 describe("GridForm", () => {
+  it("warns that the data is neither encrypted nor protected", () => {
+    render(<GridForm submitLabel="Générer" onSubmit={vi.fn()} />);
+    expect(screen.getByText(/ni chiffrées ni protégées/i)).toBeInTheDocument();
+  });
+
   it("renders blank by default", () => {
     render(<GridForm submitLabel="Générer" onSubmit={vi.fn()} />);
     expect(screen.getByRole("combobox", { name: /taille de la grille/i })).toHaveValue("5");

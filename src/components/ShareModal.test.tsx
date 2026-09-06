@@ -78,6 +78,11 @@ describe("ShareModal", () => {
     expect(screen.getByText("Indice")).toBeInTheDocument();
   });
 
+  it("warns that the data is neither encrypted nor protected", () => {
+    render(<ShareModal {...defaultProps} grids={[]} onClose={vi.fn()} />);
+    expect(screen.getByText(/ni chiffrées ni protégées/i)).toBeInTheDocument();
+  });
+
   describe("accessibilité", () => {
     it("expose une boîte de dialogue modale, nommée par son titre", () => {
       render(<ShareModal {...defaultProps} grids={[]} onClose={vi.fn()} />);
