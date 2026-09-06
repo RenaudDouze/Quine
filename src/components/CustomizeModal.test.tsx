@@ -64,6 +64,11 @@ describe("CustomizeModal", () => {
     expect(screen.getByText('Personnaliser « Grille du vendredi »')).toBeInTheDocument();
   });
 
+  it("warns that the data is neither encrypted nor protected", () => {
+    renderModal();
+    expect(screen.getByText(/ni chiffrées ni protégées/i)).toBeInTheDocument();
+  });
+
   it("closes when clicking the close button", async () => {
     const user = userEvent.setup();
     const { onClose } = renderModal();

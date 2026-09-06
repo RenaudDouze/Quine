@@ -431,6 +431,25 @@ button {
   font-size: 0.85rem;
   color: var(--text-dim);
 }
+
+/* Rappel que les grilles vivent en clair (stockage local, lien de partage,
+   synchro, export) : présent sur les formulaires de création/édition et les
+   modales Personnaliser/Partager, partout où l'utilisateur saisit du texte
+   ou diffuse une grille. */
+.privacy-notice {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+/* Dans les modales, le reste du contenu (.modal-section) est centré : centre
+   ce rappel avec lui plutôt que de le laisser aligné à gauche, et lui laisse
+   de l'air avant la première section (qui n'a elle-même aucun padding-top,
+   voir .modal-section:first-of-type). */
+.modal-panel .privacy-notice {
+  text-align: center;
+  margin-bottom: 16px;
+}
 .hint.hint-error {
   color: var(--danger);
 }
