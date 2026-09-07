@@ -147,7 +147,7 @@ export default function ShareModal({
         </div>
 
         <p className="privacy-notice">
-          Ces données ne sont ni chiffrées ni protégées : n'y mets rien de privé ou de sensible.
+          Les données ne sont ni chiffrées ni protégées : n'y mets rien de privé ou de sensible.
         </p>
 
         {remoteSync && import.meta.env.VITE_SYNC_WORKER_URL && (
