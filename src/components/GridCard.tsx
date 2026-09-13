@@ -1,5 +1,5 @@
 import { Reorder, useDragControls } from "framer-motion";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { checkWin, WIN_RULES, type Grid } from "../lib/bingo";
 import { isValidHexColor } from "../lib/colors";
 import { isValidImageUrl } from "../lib/url";
@@ -9,9 +9,14 @@ interface Props {
   grid: Grid;
   draggable: boolean;
   onChange: (next: Grid) => void;
-  onEdit: () => void;
-  onShare: () => void;
-  onCustomize: () => void;
+  // Prennent l'id plutôt qu'être de simples callbacks sans argument : HomeView
+  // leur passe une référence stable (useCallback à dépendances vides), la même
+  // pour toutes les cartes, ce qui rend React.memo ci-dessous effectif — sans
+  // ça, une fabrique différente par carte (`() => onEdit(grid)`) romprait la
+  // comparaison de props à chaque rendu de HomeView, memo ou pas.
+  onEdit: (id: string) => void;
+  onShare: (id: string) => void;
+  onCustomize: (id: string) => void;
   // Absent (plutôt qu'un booléen "peut monter/descendre" séparé) en bout de
   // liste : HomeView calcule déjà l'index dans la liste triée affichée pour
   // ça, pas la peine de le lui faire recalculer ici. Alternative clavier au
@@ -32,7 +37,7 @@ const CONFETTI_COLORS = ["#f43f5e", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", 
 /** Comme les icônes de carte de +1 : des SVG monochromes en currentColor,
  * pas des émojis colorés — un style neutre cohérent avec le reste du
  * chrome plutôt que des pictogrammes voyants (voir icons.tsx). */
-export default function GridCard({
+function GridCard({
   grid,
   draggable,
   onChange,
@@ -171,17 +176,17 @@ export default function GridCard({
             </button>
           </>
         )}
-        <button className="icon-btn" title="Modifier" aria-label="Modifier" onClick={onEdit}>
+        <button className="icon-btn" title="Modifier" aria-label="Modifier" onClick={() => onEdit(grid.id)}>
           <PencilIcon width={15} height={15} />
         </button>
-        <button className="icon-btn" title="Partager" aria-label="Partager" onClick={onShare}>
+        <button className="icon-btn" title="Partager" aria-label="Partager" onClick={() => onShare(grid.id)}>
           <ShareIcon width={15} height={15} />
         </button>
         <button
           className="icon-btn"
           title="Personnaliser"
           aria-label="Personnaliser"
-          onClick={onCustomize}
+          onClick={() => onCustomize(grid.id)}
         >
           <GearIcon width={15} height={15} />
         </button>
@@ -262,3 +267,12 @@ export default function GridCard({
     </Reorder.Item>
   );
 }
+
+// Évite de re-rendre chaque carte de la liste à chaque rendu de HomeView (ex :
+// sondage useRemoteSync toutes les 20s, ouverture du menu, frappe dans la
+// recherche) alors que sa propre grille n'a pas changé — seule la carte dont
+// `grid` a effectivement changé (updateGridById préserve l'identité des
+// grilles non touchées) doit se re-rendre. N'a d'effet que si les callbacks
+// reçus (onChange/onEdit/onShare/onCustomize) restent stables d'un rendu à
+// l'autre côté HomeView — voir les commentaires sur ces props ci-dessus.
+export default memo(GridCard);
