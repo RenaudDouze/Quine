@@ -3,12 +3,26 @@
 // appareil, la moindre confusion oblige à tout recommencer.
 const ALPHABET = "ABCDEFGHJKMNPQRSTWXYZ23456789";
 const CODE_LENGTH = 8;
+// Plus grand multiple de la taille de l'alphabet (29) qui tient dans un octet
+// (256) : un octet tiré au-delà de cette limite est rejeté et retiré, pour
+// que chaque caractère ait exactement la même probabilité — un simple modulo
+// (octet % 29) biaiserait légèrement les premiers caractères de l'alphabet,
+// 256 n'étant pas un multiple de 29.
+const REJECTION_LIMIT = Math.floor(256 / ALPHABET.length) * ALPHABET.length;
 
-/** Génère un code de synchronisation aléatoire (8 caractères, sans tiret). */
+/** Génère un code de synchronisation aléatoire (8 caractères, sans tiret).
+ * `crypto.getRandomValues` (CSPRNG) plutôt que `Math.random()` : ce code est
+ * la seule barrière d'accès en lecture/écriture aux grilles synchronisées
+ * (pas de compte, voir README.md) — `Math.random()` n'offre aucune garantie
+ * d'imprévisibilité cryptographique, contrairement à l'API Web Crypto,
+ * disponible nativement dans le runtime Workers. */
 export function generateSyncCode(): string {
   let code = "";
-  for (let i = 0; i < CODE_LENGTH; i++) {
-    code += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+  const byte = new Uint8Array(1);
+  while (code.length < CODE_LENGTH) {
+    crypto.getRandomValues(byte);
+    if (byte[0] >= REJECTION_LIMIT) continue;
+    code += ALPHABET[byte[0] % ALPHABET.length];
   }
   return code;
 }

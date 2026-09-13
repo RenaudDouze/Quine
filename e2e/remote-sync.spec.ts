@@ -2,7 +2,10 @@ import { expect, test } from '@playwright/test'
 import type { Page, Route } from '@playwright/test'
 import { createGrid, gotoFresh, openMenu } from './helpers'
 
-const WORKER_URL = 'http://sync.invalid'
+// https (pas http) : la CSP de la page (voir index.html) restreint
+// connect-src à 'self' et https:, comme le seraient de vrais workers
+// Cloudflare déployés en production.
+const WORKER_URL = 'https://sync.invalid'
 const CODE = 'ABCDEFGH'
 
 function mockGrid(id: string, title: string) {

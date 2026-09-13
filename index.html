@@ -16,27 +16,23 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="description" content="Créez et jouez à vos propres grilles de bingo personnalisées." />
+    <!--
+      Défense en profondeur (l'app échappe déjà tout contenu utilisateur à
+      chaque point de rendu — voir CLAUDE.md) : bloque l'exécution de tout
+      script injecté ou hébergé ailleurs qu'ici en cas de faille non détectée.
+      script-src reste strict ('self' uniquement, pas de inline/eval) grâce au
+      script de thème externalisé dans set-theme.js. style-src/img-src/
+      connect-src sont plus permissifs par nécessité : couleurs/confetti
+      posés en style inline par React, images de fond et code de synchro
+      pointant vers des origines choisies par l'utilisateur (voir GridCard.tsx
+      et useRemoteSync.ts).
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; base-uri 'self'; form-action 'self';"
+    />
     <title>Quine</title>
-    <script>
-      // Pose le thème avant le premier rendu, pour éviter un flash du thème
-      // clair par défaut le temps que React s'hydrate. Miroir de la logique
-      // de src/App.tsx (clé de stockage et repli sur la préférence système).
-      ;(function () {
-        try {
-          var stored = localStorage.getItem('bingo.theme.v1')
-          var pref = stored ? JSON.parse(stored) : 'system'
-          var theme =
-            pref === 'system'
-              ? window.matchMedia('(prefers-color-scheme: dark)').matches
-                ? 'dark'
-                : 'light'
-              : pref
-          document.documentElement.dataset.theme = theme
-        } catch {
-          // stockage indisponible : reste sur le thème clair par défaut.
-        }
-      })()
-    </script>
+    <script src="./set-theme.js"></script>
   </head>
   <body>
     <div id="root"></div>
