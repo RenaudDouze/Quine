@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { Reorder } from "framer-motion";
 import type { ThemePreference } from "../App";
 import CustomizeModal from "../components/CustomizeModal";
@@ -86,9 +86,17 @@ interface Props {
 export default function HomeView({ themePreference, onThemePreferenceChange }: Props) {
   const [grids, setGrids] = useState<Grid[]>(() => loadGrids());
   const [syncOpen, setSyncOpen] = useState(false);
-  const [shareTarget, setShareTarget] = useState<Grid | null>(null);
-  const [customizeTarget, setCustomizeTarget] = useState<Grid | null>(null);
-  const [editTarget, setEditTarget] = useState<Grid | null>(null);
+  // Identifiants plutôt que les grilles elles-mêmes : la grille affichée dans
+  // la modale reste ainsi toujours à jour (recherchée dans `grids` au rendu),
+  // et surtout les callbacks qui les ouvrent (voir openShare/openCustomize/
+  // openEdit plus bas) peuvent être stables (useCallback à dépendances vides)
+  // au lieu de fabriquer une closure différente par carte à chaque rendu de
+  // HomeView — condition nécessaire pour que React.memo sur GridCard évite de
+  // re-rendre toute la liste à chaque rendu de HomeView sans rapport avec les
+  // grilles (sondage de synchro, ouverture du menu, recherche...).
+  const [shareTargetId, setShareTargetId] = useState<string | null>(null);
+  const [customizeTargetId, setCustomizeTargetId] = useState<string | null>(null);
+  const [editTargetId, setEditTargetId] = useState<string | null>(null);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -259,9 +267,31 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     persist(mode === "replace" ? imported : [...grids, ...imported]);
   }
 
-  function updateGrid(next: Grid) {
-    persist(grids.map((g) => (g.id === next.id ? { ...next, updatedAt: now() } : g)));
-  }
+  // Identité stable (dépendances vides) plutôt qu'une fonction ordinaire :
+  // c'est le callback `onChange` de chaque GridCard, déclenché à chaque coche
+  // de case — le chemin le plus fréquent de tous. Une identité qui change à
+  // chaque rendu de HomeView (comme le ferait `persist(grids.map(...))` en
+  // lisant `grids` directement) romprait React.memo sur GridCard pour toutes
+  // les cartes à chaque fois, pas seulement celle qui a changé. La forme
+  // fonctionnelle de `setGrids` lit l'état courant sans avoir besoin de
+  // `grids` en dépendance.
+  const updateGrid = useCallback((next: Grid) => {
+    setGrids((prev) => {
+      const updated = prev.map((g) => (g.id === next.id ? { ...next, updatedAt: now() } : g));
+      saveGrids(updated);
+      return updated;
+    });
+  }, []);
+
+  // Identité stable pour la même raison qu'updateGrid ci-dessus : passés tels
+  // quels (même référence) à chaque GridCard, ils n'invalident pas
+  // React.memo. La grille concernée est retrouvée par id au moment du rendu
+  // (voir shareGrid/customizeGrid/editGrid plus bas) plutôt que capturée ici,
+  // ce qui a aussi pour effet la modale reflète toujours l'état courant de la
+  // grille plutôt qu'un instantané pris à l'ouverture.
+  const openShare = useCallback((id: string) => setShareTargetId(id), []);
+  const openCustomize = useCallback((id: string) => setCustomizeTargetId(id), []);
+  const openEdit = useCallback((id: string) => setEditTargetId(id), []);
 
   // Remplace une seule grille, identifiée par son id, par le résultat de
   // `updater` — point d'entrée commun à tous les réglages qui ne touchent
@@ -328,6 +358,15 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
         : "Vue : Actives";
   const ThemeIcon = THEME_ICON[themePreference];
   const ArchiveViewIcon = ARCHIVE_VIEW_ICON[archiveView];
+
+  // Retrouvées par id à chaque rendu plutôt que gardées telles quelles dans
+  // shareTargetId/customizeTargetId/editTargetId : la modale affiche ainsi
+  // toujours l'état courant de la grille (utile si une mise à jour de synchro
+  // distante arrive pendant qu'elle est ouverte), sans avoir à la resynchroniser
+  // manuellement à chaque mutation.
+  const shareGrid = grids.find((g) => g.id === shareTargetId);
+  const customizeGrid = grids.find((g) => g.id === customizeTargetId);
+  const editGrid = grids.find((g) => g.id === editTargetId);
 
   return (
     <>
@@ -491,9 +530,9 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
               grid={grid}
               draggable={draggable}
               onChange={updateGrid}
-              onEdit={() => setEditTarget(grid)}
-              onShare={() => setShareTarget(grid)}
-              onCustomize={() => setCustomizeTarget(grid)}
+              onEdit={openEdit}
+              onShare={openShare}
+              onCustomize={openCustomize}
               onMoveUp={index > 0 ? () => moveGrid(grid.id, -1) : undefined}
               onMoveDown={index < sortedGrids.length - 1 ? () => moveGrid(grid.id, 1) : undefined}
             />
@@ -521,54 +560,54 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
         </ErrorBoundary>
       )}
 
-      {shareTarget && (
+      {shareGrid && (
         <ErrorBoundary
           fallback={modalCrashFallback(
-            `Partager "${shareTarget.title}"`,
+            `Partager "${shareGrid.title}"`,
             CHUNK_LOAD_FAILED_MESSAGE,
-            () => setShareTarget(null)
+            () => setShareTargetId(null)
           )}
         >
           <Suspense fallback={null}>
             <ShareModal
-              grids={[shareTarget]}
-              heading={`Partager "${shareTarget.title}"`}
+              grids={[shareGrid]}
+              heading={`Partager "${shareGrid.title}"`}
               hint="Scanne ce QR code, ou copie le lien pour que quelqu'un d'autre récupère cette grille."
               emptyHint="Impossible de générer un QR code."
-              qrAlt={`QR code de la grille ${shareTarget.title}`}
-              onClose={() => setShareTarget(null)}
+              qrAlt={`QR code de la grille ${shareGrid.title}`}
+              onClose={() => setShareTargetId(null)}
             />
           </Suspense>
         </ErrorBoundary>
       )}
 
-      {customizeTarget && (
+      {customizeGrid && (
         <ErrorBoundary
           fallback={modalCrashFallback(
-            `Personnaliser « ${customizeTarget.title} »`,
+            `Personnaliser « ${customizeGrid.title} »`,
             MODAL_CRASH_MESSAGE,
-            () => setCustomizeTarget(null)
+            () => setCustomizeTargetId(null)
           )}
         >
           <CustomizeModal
-            grid={customizeTarget}
-            onClose={() => setCustomizeTarget(null)}
-            onUpdate={(patch) => patchGrid(customizeTarget.id, patch)}
-            onShuffle={() => shuffleGrid(customizeTarget.id)}
-            onReset={() => resetGrid(customizeTarget.id)}
-            onTogglePin={() => togglePin(customizeTarget.id)}
-            onToggleArchive={() => toggleArchive(customizeTarget.id)}
-            onDuplicate={() => handleDuplicate(customizeTarget)}
-            onDelete={() => handleDelete(customizeTarget)}
+            grid={customizeGrid}
+            onClose={() => setCustomizeTargetId(null)}
+            onUpdate={(patch) => patchGrid(customizeGrid.id, patch)}
+            onShuffle={() => shuffleGrid(customizeGrid.id)}
+            onReset={() => resetGrid(customizeGrid.id)}
+            onTogglePin={() => togglePin(customizeGrid.id)}
+            onToggleArchive={() => toggleArchive(customizeGrid.id)}
+            onDuplicate={() => handleDuplicate(customizeGrid)}
+            onDelete={() => handleDelete(customizeGrid)}
           />
         </ErrorBoundary>
       )}
 
-      {editTarget && (
+      {editGrid && (
         <ErrorBoundary
-          fallback={modalCrashFallback(`Modifier « ${editTarget.title} »`, MODAL_CRASH_MESSAGE, () => setEditTarget(null))}
+          fallback={modalCrashFallback(`Modifier « ${editGrid.title} »`, MODAL_CRASH_MESSAGE, () => setEditTargetId(null))}
         >
-          <EditModal grid={editTarget} onClose={() => setEditTarget(null)} onSave={updateGrid} />
+          <EditModal grid={editGrid} onClose={() => setEditTargetId(null)} onSave={updateGrid} />
         </ErrorBoundary>
       )}
 

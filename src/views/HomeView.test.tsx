@@ -278,7 +278,10 @@ describe("HomeView", () => {
       const grids = loadGrids();
       expect(grids.find((g) => g.id === "g1")?.title).toBe("Nouveau nom");
       expect(grids.find((g) => g.id === "g2")?.title).toBe("Autre grille");
-      expect(screen.getByText('Personnaliser « Ma grille »')).toBeInTheDocument();
+      // Le titre affiché dans l'en-tête de la modale suit le renommage : elle
+      // reflète l'état courant de la grille (retrouvée par id), pas un
+      // instantané figé au moment de l'ouverture.
+      expect(screen.getByText('Personnaliser « Nouveau nom »')).toBeInTheDocument();
     });
 
     it("reshuffles the targeted grid's cells only, once confirmed, and closes the modal", async () => {
