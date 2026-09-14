@@ -50,16 +50,33 @@ Its commands run from inside `worker/`: `npm test`, `npm run typecheck`,
 - **100% mutation score** is enforced by `stryker.config.json`, but only for
   the pure-logic files listed under `mutate` (currently `src/lib/bingo.ts`,
   `share.ts`, `colors.ts`, `url.ts`, `download.ts`, `gridImage.ts`,
-  `print.ts`, `remoteSync.ts`). Component/CSS-only changes don't affect this
-  score; a new pure-logic file should be added to that list. Where a mutant
-  is truly behaviorally equivalent, it's suppressed inline with a
-  `// Stryker disable next-line <MutatorName>: <reasoning>` comment rather
-  than a weaker test — see existing examples in `src/lib/bingo.ts` and
-  `gridImage.ts` for the expected style.
+  `print.ts`, `remoteSync.ts`, `pdfExport.ts`). Component/CSS-only changes
+  don't affect this score; a new pure-logic file should be added to that
+  list. Where a mutant is truly behaviorally equivalent, it's suppressed
+  inline with a `// Stryker disable next-line <MutatorName>: <reasoning>`
+  comment rather than a weaker test — see existing examples in
+  `src/lib/bingo.ts` and `gridImage.ts` for the expected style.
 - `oxlint --deny-warnings` and `tsc -b` must both be clean.
 - All five CI jobs (lint, typecheck, unit tests + coverage, Playwright e2e,
   mutation testing) plus a separate `worker/` job (typecheck + tests) run on
   every PR and push to `main`, defined in `.github/workflows/ci.yml`.
+- **`typescript` is pinned to `~6.0.2` and `vitest`/`@vitest/coverage-v8` are
+  pinned to `^4.1.11`, deliberately behind their latest majors** — both were
+  tried and reverted because they break the Stryker mutation-testing
+  pipeline: TypeScript 7 removes the compiler API
+  (`ts.parseConfigFileTextToJson`) that `@stryker-mutator/core`'s
+  `ts-config-preprocessor` depends on, crashing `stryker run` outright;
+  Vitest 5 passes every other check (lint, typecheck, tests, e2e, build)
+  but silently collapses the mutation score from 100% to ~3% —
+  `@stryker-mutator/vitest-runner`'s test-attribution logic doesn't work
+  correctly under Vitest 5, despite its permissive `vitest: >=2.0.0` peer
+  dependency. Don't bump either without re-verifying `npm run test:mutation`
+  stays at 100%, not just that the other checks pass. Also: a bare `npm
+  update`/`npm install` can crash with a known npm 10.9.7 Arborist resolver
+  bug on this peer-dependency shape (`Cannot read properties of null
+  (reading 'edgesOut')`); update dependencies via targeted
+  `npm install <pkg>@<version>` calls instead, and never commit a lockfile
+  produced with `--legacy-peer-deps` (it's incompatible with `npm ci`).
 
 ## Architecture
 
@@ -131,6 +148,30 @@ Three distinct mechanisms, don't conflate them:
   see `worker/README.md` and the comment above `MAX_BODY_BYTES` in
   `worker/src/index.ts`); don't reintroduce IP-based limiting without
   re-reading why it was removed.
+
+### Batch card generation and PDF export (`generateCardVariants` in `bingo.ts`, `src/lib/pdfExport.ts`)
+
+For a group playing from the same grid, each player needs a distinct shuffle
+of the same word pool rather than one shared card. `generateCardVariants(grid,
+count)` produces `count` independent `Grid`s by re-running `buildCells` on the
+same `items`/`size`/`freeCenter` — each call reshuffles from scratch, so
+variants are genuinely distinct draws, not just relabeled copies.
+`pdfExport.ts` renders those variants into a single multi-page A4 PDF (one
+card per page) via `jsPDF`, loaded with a dynamic `import("jspdf")` so its
+~130KB stays in its own chunk and never touches the main bundle. Deliberately
+*not* built by rasterizing `buildGridSvg`'s output: that SVG uses
+`<foreignObject>` for text layout, which doesn't render reliably once loaded
+into a `<canvas>` for rasterization. Instead `pdfExport.ts` draws with jsPDF's
+native vector primitives, and — matching the pattern used everywhere else in
+this codebase for mutation-testability — separates pure geometry/color
+computation (`computeBoardLayout`, `computeCellLayout`,
+`computeLineYPositions`, exhaustively unit-tested with exact-value
+assertions) from the thin, mostly-untestable-by-mutation jsPDF orchestration
+in `drawGridPage`/`exportGridsAsPdf`. Reuses `DEFAULT_ACCENT`,
+`FREE_CELL_TINT_RATIO`, and the `hexToRgb`/`tintWithWhite` color helpers
+exported from `colors.ts`/`gridImage.ts` so the PDF and SVG exports render
+grids identically. Wired into `ShareModal.tsx`'s single-grid share section
+("Plusieurs cartes (PDF)"), 2–100 cards.
 
 ### Components vs. views
 
