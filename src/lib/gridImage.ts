@@ -1,5 +1,5 @@
 import type { Grid } from "./bingo";
-import { isValidHexColor } from "./colors";
+import { hexToRgb, isValidHexColor } from "./colors";
 import { triggerDownload } from "./download";
 
 const CELL_SIZE = 120;
@@ -8,12 +8,15 @@ const PADDING = 24;
 const TITLE_HEIGHT = 60;
 // Repli quand la grille n'a pas de couleur propre (voir index.css : --accent
 // suit la même règle, le bleu du CTA plutôt qu'une couleur de marque fixe).
-const DEFAULT_ACCENT = "#2563eb";
+// Exporté : même repli réutilisé par l'export PDF (voir pdfExport.ts), pour
+// une apparence cohérente entre les deux formats d'export.
+export const DEFAULT_ACCENT = "#2563eb";
 // Même dosage que color-mix(in srgb, var(--accent) 18%, var(--surface)) en
 // CSS pour la case "GRATUIT" : non réutilisable ici tel quel, ce fichier
 // produit un SVG autonome destiné à être ouvert hors navigateur (imprimante,
 // visionneuse d'images...), où color-mix() n'est pas garanti disponible.
-const FREE_CELL_TINT_RATIO = 0.18;
+// Exporté : même dosage réutilisé par l'export PDF (voir pdfExport.ts).
+export const FREE_CELL_TINT_RATIO = 0.18;
 
 /** Échappe les caractères spéciaux XML pour une insertion sûre dans le SVG. */
 function escapeXml(value: string): string {
@@ -26,12 +29,11 @@ function escapeXml(value: string): string {
 
 /** Mélange une couleur hex avec du blanc dans la proportion `ratio` (0 = blanc
  * pur, 1 = couleur pure) — l'équivalent, calculé une fois pour un fichier SVG
- * statique, de color-mix(in srgb, <couleur> <ratio>%, white) en CSS. */
-function tintWithWhite(hex: string, ratio: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  const r = (n >> 16) & 0xff;
-  const g = (n >> 8) & 0xff;
-  const b = n & 0xff;
+ * statique, de color-mix(in srgb, <couleur> <ratio>%, white) en CSS. Exportée :
+ * même calcul réutilisé par l'export PDF (voir pdfExport.ts) pour teinter la
+ * case "GRATUIT" à l'identique. */
+export function tintWithWhite(hex: string, ratio: number): string {
+  const [r, g, b] = hexToRgb(hex);
   const mix = (channel: number) => Math.round(channel * ratio + 255 * (1 - ratio));
   // Stryker disable next-line StringLiteral: avec FREE_CELL_TINT_RATIO fixé à
   // 0.18, chaque canal mélangé reste toujours >= 209 (255 * 0.82 au minimum),

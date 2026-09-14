@@ -26,3 +26,14 @@ export function pickColor(existingCount: number): string {
 export function isValidHexColor(value: string): boolean {
   return /^#[0-9a-f]{6}$/i.test(value);
 }
+
+/** Décompose une couleur hexadécimale #rrggbb en triplet RGB (0-255 par
+ * canal) — utilisé partout où une couleur d'accent doit être posée sur un
+ * support qui ne comprend pas le CSS (export PDF via jsPDF, voir
+ * pdfExport.ts). Suppose une entrée déjà validée par isValidHexColor : les
+ * appelants sont responsables de ce garde-fou, comme pour tintWithWhite
+ * (gridImage.ts) qui partage ce même calcul. */
+export function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+}

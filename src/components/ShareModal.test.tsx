@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildCells, type Grid } from "../lib/bingo";
 import { downloadGridSvg } from "../lib/gridImage";
+import { exportGridsAsPdf } from "../lib/pdfExport";
 import { printGrid } from "../lib/print";
 import type { UseRemoteSyncResult } from "../hooks/useRemoteSync";
 import ShareModal from "./ShareModal";
@@ -19,6 +20,10 @@ vi.mock("../lib/gridImage", () => ({
 
 vi.mock("../lib/print", () => ({
   printGrid: vi.fn(),
+}));
+
+vi.mock("../lib/pdfExport", () => ({
+  exportGridsAsPdf: vi.fn(),
 }));
 
 function makeGrid(overrides: Partial<Grid> = {}): Grid {
@@ -338,6 +343,85 @@ describe("ShareModal", () => {
       await waitFor(() => expect(screen.getByText(/Imprimer/)).toBeInTheDocument());
       fireEvent.click(screen.getByText(/Imprimer/));
       expect(printGrid).toHaveBeenCalledWith(grid.id);
+    });
+  });
+
+  describe("export PDF de plusieurs cartes", () => {
+    it("n'affiche pas le bouton pour plusieurs grilles", () => {
+      render(<ShareModal {...defaultProps} grids={[makeGrid({ id: "a" }), makeGrid({ id: "b" })]} onClose={vi.fn()} />);
+      expect(screen.queryByText(/Plusieurs cartes \(PDF\)/)).not.toBeInTheDocument();
+    });
+
+    it("révèle le réglage du nombre de cartes au clic, avec 10 par défaut", async () => {
+      render(<ShareModal {...defaultProps} grids={[makeGrid()]} onClose={vi.fn()} />);
+      await waitFor(() => expect(screen.getByText(/Plusieurs cartes \(PDF\)/)).toBeInTheDocument());
+      fireEvent.click(screen.getByText(/Plusieurs cartes \(PDF\)/));
+      expect(screen.queryByText(/Plusieurs cartes \(PDF\)/)).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/Nombre de cartes/)).toHaveValue(10);
+      expect(screen.getByRole("button", { name: "Générer le PDF" })).toBeInTheDocument();
+    });
+
+    it("génère autant de variantes que demandé, avec le titre de la grille comme nom de fichier", async () => {
+      const grid = makeGrid({ title: "Soirée jeux" });
+      vi.mocked(exportGridsAsPdf).mockResolvedValue(undefined);
+      render(<ShareModal {...defaultProps} grids={[grid]} onClose={vi.fn()} />);
+      await waitFor(() => expect(screen.getByText(/Plusieurs cartes \(PDF\)/)).toBeInTheDocument());
+      fireEvent.click(screen.getByText(/Plusieurs cartes \(PDF\)/));
+      fireEvent.change(screen.getByLabelText(/Nombre de cartes/), { target: { value: "4" } });
+      fireEvent.click(screen.getByRole("button", { name: "Générer le PDF" }));
+
+      await waitFor(() => expect(exportGridsAsPdf).toHaveBeenCalledTimes(1));
+      const [variants, filename] = vi.mocked(exportGridsAsPdf).mock.calls[0];
+      expect(variants).toHaveLength(4);
+      expect(variants.every((v) => v.title === "Soirée jeux" && v.size === grid.size)).toBe(true);
+      expect(filename).toBe("Soirée jeux");
+    });
+
+    it("désactive le bouton et affiche un état de progression pendant la génération", async () => {
+      let resolveExport: () => void = () => {};
+      vi.mocked(exportGridsAsPdf).mockReturnValue(
+        new Promise((resolve) => {
+          resolveExport = () => resolve(undefined);
+        })
+      );
+      render(<ShareModal {...defaultProps} grids={[makeGrid()]} onClose={vi.fn()} />);
+      await waitFor(() => expect(screen.getByText(/Plusieurs cartes \(PDF\)/)).toBeInTheDocument());
+      fireEvent.click(screen.getByText(/Plusieurs cartes \(PDF\)/));
+      fireEvent.click(screen.getByRole("button", { name: "Générer le PDF" }));
+
+      const button = await screen.findByRole("button", { name: "Génération…" });
+      expect(button).toBeDisabled();
+
+      await act(async () => {
+        resolveExport();
+      });
+      expect(screen.getByRole("button", { name: "Générer le PDF" })).not.toBeDisabled();
+    });
+
+    it("désactive le bouton en dehors des bornes autorisées (2 à 100)", async () => {
+      render(<ShareModal {...defaultProps} grids={[makeGrid()]} onClose={vi.fn()} />);
+      await waitFor(() => expect(screen.getByText(/Plusieurs cartes \(PDF\)/)).toBeInTheDocument());
+      fireEvent.click(screen.getByText(/Plusieurs cartes \(PDF\)/));
+      const input = screen.getByLabelText(/Nombre de cartes/);
+      const button = screen.getByRole("button", { name: "Générer le PDF" });
+
+      fireEvent.change(input, { target: { value: "1" } });
+      expect(button).toBeDisabled();
+
+      fireEvent.change(input, { target: { value: "101" } });
+      expect(button).toBeDisabled();
+
+      fireEvent.change(input, { target: { value: "50" } });
+      expect(button).not.toBeDisabled();
+    });
+
+    it("affiche un message d'erreur si la génération échoue, sans planter", async () => {
+      vi.mocked(exportGridsAsPdf).mockRejectedValue(new Error("chunk introuvable"));
+      render(<ShareModal {...defaultProps} grids={[makeGrid()]} onClose={vi.fn()} />);
+      await waitFor(() => expect(screen.getByText(/Plusieurs cartes \(PDF\)/)).toBeInTheDocument());
+      fireEvent.click(screen.getByText(/Plusieurs cartes \(PDF\)/));
+      fireEvent.click(screen.getByRole("button", { name: "Générer le PDF" }));
+      expect(await screen.findByText(/Impossible de générer le PDF/)).toBeInTheDocument();
     });
   });
 
