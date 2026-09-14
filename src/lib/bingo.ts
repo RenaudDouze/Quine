@@ -95,6 +95,19 @@ export function buildCells(items: string[], size: number, freeCenter: boolean): 
   return cells;
 }
 
+/** Génère `count` variantes indépendantes d'une grille à partir du même pool
+ * d'items (mêmes titre/taille/case libre, cases remélangées séparément pour
+ * chacune) — pour imprimer un lot de cartes distinctes lors d'une soirée à
+ * plusieurs joueurs (voir pdfExport.ts). Chaque variante est une grille
+ * fraîche (aucune case cochée), jamais persistée : ce n'est qu'un support
+ * d'export, pas une nouvelle grille sauvegardée. */
+export function generateCardVariants(grid: Grid, count: number): Grid[] {
+  return Array.from({ length: count }, () => ({
+    ...grid,
+    cells: buildCells(grid.items, grid.size, grid.freeCenter),
+  }));
+}
+
 export interface WinResult {
   hasWin: boolean;
   winSet: Set<number>;

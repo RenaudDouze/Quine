@@ -121,6 +121,34 @@ test('exports the current grid as an SVG image', async ({ page }) => {
   expect(download.suggestedFilename()).toMatch(/\.svg$/)
 })
 
+test('exports multiple shuffled cards as a single PDF', async ({ page }) => {
+  await createGrid(page, {
+    title: 'Soirée jeux',
+    size: 3,
+    items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
+  })
+
+  await page.getByRole('button', { name: 'Partager' }).click()
+  await page.getByRole('button', { name: 'Plusieurs cartes (PDF)' }).click()
+  await page.getByLabel('Nombre de cartes').fill('3')
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Générer le PDF' }).click()
+  const download = await downloadPromise
+
+  // jsPDF déclenche le téléchargement via un <a> synthétique jamais attaché
+  // au DOM (voir sa fonction saveAs interne) : Playwright ne récupère alors
+  // pas toujours le nom suggéré de façon fiable, contrairement à
+  // triggerDownload (download.ts, utilisé ailleurs dans l'app) qui attache
+  // son lien avant de cliquer. On vérifie donc le contenu réel plutôt que le
+  // nom du fichier : la signature %PDF- en tête prouve qu'un vrai PDF a été
+  // généré et téléchargé de bout en bout.
+  const stream = await download.createReadStream()
+  const chunks: Buffer[] = []
+  for await (const chunk of stream) chunks.push(chunk as Buffer)
+  const content = Buffer.concat(chunks)
+  expect(content.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+})
+
 test('calls window.print when Imprimer is clicked', async ({ page }) => {
   await createGrid(page, {
     title: 'À imprimer',

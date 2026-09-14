@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COLORS, isValidHexColor, pickColor } from "./colors";
+import { COLORS, hexToRgb, isValidHexColor, pickColor } from "./colors";
 
 describe("COLORS", () => {
   it("contient exactement la palette curatée attendue", () => {
@@ -75,5 +75,20 @@ describe("isValidHexColor", () => {
 
   it("refuse un hex valide précédé d'autre chose (ancré en début de chaîne)", () => {
     expect(isValidHexColor("x#2563eb")).toBe(false);
+  });
+});
+
+describe("hexToRgb", () => {
+  it("décompose une couleur en triplet RGB", () => {
+    expect(hexToRgb("#2563eb")).toEqual([0x25, 0x63, 0xeb]);
+  });
+
+  it("gère le noir et le blanc", () => {
+    expect(hexToRgb("#000000")).toEqual([0, 0, 0]);
+    expect(hexToRgb("#ffffff")).toEqual([255, 255, 255]);
+  });
+
+  it("est insensible à la casse", () => {
+    expect(hexToRgb("#2563EB")).toEqual(hexToRgb("#2563eb"));
   });
 });

@@ -19,7 +19,8 @@
     "src/lib/download.ts",
     "src/lib/gridImage.ts",
     "src/lib/print.ts",
-    "src/lib/remoteSync.ts"
+    "src/lib/remoteSync.ts",
+    "src/lib/pdfExport.ts"
   ],
   "thresholds": {
     "high": 100,

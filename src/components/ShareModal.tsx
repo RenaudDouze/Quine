@@ -1,13 +1,22 @@
 import { useEffect, useId, useRef, useState } from "react";
 import QRCode from "qrcode";
-import type { Grid } from "../lib/bingo";
+import { generateCardVariants, type Grid } from "../lib/bingo";
 import { downloadGridSvg } from "../lib/gridImage";
+import { exportGridsAsPdf } from "../lib/pdfExport";
 import { printGrid } from "../lib/print";
 import { formatSyncCode } from "../lib/remoteSync";
 import { buildShareUrl, downloadBackup, parseBackupJson } from "../lib/share";
 import type { UseRemoteSyncResult } from "../hooks/useRemoteSync";
 import { useFocusTrap } from "../hooks/useFocusTrap";
-import { CheckIcon, CloseIcon, ImageIcon, PrintIcon, ShareIcon } from "./icons";
+import { CheckIcon, CloseIcon, DuplicateIcon, ImageIcon, PrintIcon, ShareIcon } from "./icons";
+
+// Bornes raisonnables pour un lot de cartes à imprimer : en dessous de 2 ça
+// n'a pas d'intérêt par rapport à l'export image existant, au-delà de 100 le
+// PDF devient inutilement volumineux pour un usage réaliste (soirée à
+// plusieurs joueurs, pas un tirage de masse).
+const MIN_PDF_CARDS = 2;
+const MAX_PDF_CARDS = 100;
+const DEFAULT_PDF_CARDS = 10;
 
 interface Props {
   grids: Grid[];
@@ -58,6 +67,10 @@ export default function ShareModal({
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinInput, setJoinInput] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
+
+  const [pdfExportOpen, setPdfExportOpen] = useState(false);
+  const [pdfCardCount, setPdfCardCount] = useState(DEFAULT_PDF_CARDS);
+  const [pdfExporting, setPdfExporting] = useState(false);
 
   // Synchronise avec la génération asynchrone du QR code (dépend de
   // `grids`) : ne peut pas être dérivé pendant le rendu.
@@ -126,6 +139,26 @@ export default function ShareModal({
       return;
     }
     setJoinError(outcome === "error" && remoteSync!.errorMessage ? remoteSync!.errorMessage : JOIN_OUTCOME_ERROR[outcome]);
+  }
+
+  // N'est rendu accessible que depuis le bloc "Plusieurs cartes (PDF)"
+  // ci-dessous, affiché seulement quand `grids.length === 1` : `grids[0]`
+  // est donc toujours défini ici.
+  async function handleExportPdf() {
+    setError(null);
+    setPdfExporting(true);
+    try {
+      const variants = generateCardVariants(grids[0], pdfCardCount);
+      await exportGridsAsPdf(variants, grids[0].title);
+    } catch {
+      // Le cas le plus probable est un chunk jsPDF introuvable après un
+      // nouveau déploiement (voir ErrorBoundary/modalCrashFallback dans
+      // HomeView.tsx pour le même souci sur ShareModal lui-même) : import()
+      // dynamique échoué, pas de détail exploitable au-delà de ce message.
+      setError("Impossible de générer le PDF — recharge la page et réessaie.");
+    } finally {
+      setPdfExporting(false);
+    }
   }
 
   return (
@@ -237,6 +270,39 @@ export default function ShareModal({
                 <PrintIcon width={16} height={16} /> Imprimer
               </button>
             </div>
+
+            {pdfExportOpen ? (
+              <>
+                <p className="modal-hint">
+                  Génère un PDF avec plusieurs cartes distinctes, les mêmes mots mélangés différemment sur
+                  chacune — pratique pour une soirée à plusieurs joueurs.
+                </p>
+                <div className="modal-row">
+                  <label className="field">
+                    <span>Nombre de cartes</span>
+                    <input
+                      type="number"
+                      className="modal-input"
+                      min={MIN_PDF_CARDS}
+                      max={MAX_PDF_CARDS}
+                      value={pdfCardCount}
+                      onChange={(e) => setPdfCardCount(Number(e.target.value))}
+                    />
+                  </label>
+                  <button
+                    className="modal-btn"
+                    onClick={handleExportPdf}
+                    disabled={pdfExporting || pdfCardCount < MIN_PDF_CARDS || pdfCardCount > MAX_PDF_CARDS}
+                  >
+                    {pdfExporting ? "Génération…" : "Générer le PDF"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button className="modal-btn" onClick={() => setPdfExportOpen(true)}>
+                <DuplicateIcon width={16} height={16} /> Plusieurs cartes (PDF)
+              </button>
+            )}
           </section>
         )}
 

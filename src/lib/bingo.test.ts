@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildCells,
   checkWin,
+  generateCardVariants,
   matchesSearch,
   neededCount,
   shuffle,
@@ -115,6 +116,63 @@ describe("buildCells", () => {
     expect(cells).toHaveLength(9);
     const labels = new Set(cells.map((c) => c.label));
     expect(labels.size).toBe(9);
+  });
+});
+
+describe("generateCardVariants", () => {
+  it("returns exactly `count` grids", () => {
+    const grid = makeGrid({ items: ["A", "B", "C", "D", "E", "F", "G", "H", "I"] });
+    expect(generateCardVariants(grid, 5)).toHaveLength(5);
+  });
+
+  it("returns an empty array for a count of 0", () => {
+    const grid = makeGrid({ items: ["A", "B", "C", "D", "E", "F", "G", "H", "I"] });
+    expect(generateCardVariants(grid, 0)).toEqual([]);
+  });
+
+  it("preserves title/size/freeCenter/items on every variant", () => {
+    const grid = makeGrid({
+      title: "Soirée jeux",
+      size: 3,
+      freeCenter: false,
+      items: ["A", "B", "C", "D", "E", "F", "G", "H", "I"],
+    });
+    const variants = generateCardVariants(grid, 3);
+    for (const variant of variants) {
+      expect(variant.title).toBe(grid.title);
+      expect(variant.size).toBe(grid.size);
+      expect(variant.freeCenter).toBe(grid.freeCenter);
+      expect(variant.items).toBe(grid.items);
+    }
+  });
+
+  it("builds size*size fresh, unmarked cells for every variant", () => {
+    const grid = makeGrid({
+      size: 5,
+      freeCenter: true,
+      items: Array.from({ length: 24 }, (_, i) => `item-${i}`),
+    });
+    const [variant] = generateCardVariants(grid, 1);
+    expect(variant.cells).toHaveLength(25);
+    expect(variant.cells.filter((c) => !c.free).every((c) => !c.marked)).toBe(true);
+  });
+
+  it("shuffles each variant independently, rarely producing the same cell order twice", () => {
+    const grid = makeGrid({ items: Array.from({ length: 9 }, (_, i) => `item-${i}`) });
+    const variants = generateCardVariants(grid, 10);
+    const orders = new Set(variants.map((v) => v.cells.map((c) => c.label).join(",")));
+    // 9! permutations possibles : une collision sur 10 tirages serait une
+    // coïncidence astronomiquement improbable si chaque variante n'était pas
+    // remélangée indépendamment.
+    expect(orders.size).toBeGreaterThan(1);
+  });
+
+  it("does not mutate the original grid's cells", () => {
+    const originalCells = [{ label: "A", free: false, marked: true }];
+    const grid = makeGrid({ items: ["A"], size: 1, cells: originalCells });
+    generateCardVariants(grid, 3);
+    expect(grid.cells).toBe(originalCells);
+    expect(grid.cells).toEqual([{ label: "A", free: false, marked: true }]);
   });
 });
 
