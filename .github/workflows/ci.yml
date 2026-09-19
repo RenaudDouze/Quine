@@ -106,6 +106,20 @@ jobs:
         working-directory: worker
       - run: npm test
         working-directory: worker
+      - run: npm audit --audit-level=high
+        working-directory: worker
+
+  audit:
+    name: Audit des dépendances (front)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
 
   build:
     name: Build de production

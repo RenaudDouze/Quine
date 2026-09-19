@@ -42,8 +42,9 @@ npm run test:mutation # mutation testing (Stryker) sur la logique pure (src/lib/
 ## CI
 
 `.github/workflows/ci.yml` exécute lint, typecheck, tests unitaires
-(couverture), tests e2e, mutation testing, tests du worker de synchro et
-build sur chaque PR et push sur `main`. `.github/workflows/deploy.yml`
+(couverture), tests e2e, mutation testing, audit des dépendances, tests du
+worker de synchro (avec son propre audit) et build sur chaque PR et push sur
+`main`. `.github/workflows/deploy.yml`
 déploie le build sur GitHub Pages à chaque push sur `main` (variable
 d'environnement `VITE_SYNC_WORKER_URL`, non secrète, à régler dans Settings
 → Secrets and variables → Actions → Variables une fois le worker déployé).

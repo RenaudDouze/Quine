@@ -57,9 +57,10 @@ Its commands run from inside `worker/`: `npm test`, `npm run typecheck`,
   comment rather than a weaker test — see existing examples in
   `src/lib/bingo.ts` and `gridImage.ts` for the expected style.
 - `oxlint --deny-warnings` and `tsc -b` must both be clean.
-- All five CI jobs (lint, typecheck, unit tests + coverage, Playwright e2e,
-  mutation testing) plus a separate `worker/` job (typecheck + tests) run on
-  every PR and push to `main`, defined in `.github/workflows/ci.yml`.
+- All six CI jobs (lint, typecheck, unit tests + coverage, Playwright e2e,
+  mutation testing, dependency audit) plus a separate `worker/` job
+  (typecheck + tests + its own `npm audit`) run on every PR and push to
+  `main`, defined in `.github/workflows/ci.yml`.
 - **`typescript` is pinned to `~6.0.2` and `vitest`/`@vitest/coverage-v8` are
   pinned to `^4.1.11`, deliberately behind their latest majors** — both were
   tried and reverted because they break the Stryker mutation-testing
