@@ -5,6 +5,7 @@ import CustomizeModal from "../components/CustomizeModal";
 import EditModal from "../components/EditModal";
 import GridCard from "../components/GridCard";
 import { buildCells, matchesSearch, sortByPinned, type Grid } from "../lib/bingo";
+import { mergeVisibleOrder } from "../lib/reorder";
 import { loadGrids, saveGrids, uid } from "../lib/storage";
 import { now } from "../lib/time";
 import { navigate } from "../hooks/useHashRoute";
@@ -232,13 +233,21 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     [grids, archiveView, searchQuery]
   );
   const sortedGrids = useMemo(() => sortByPinned(filteredGrids), [filteredGrids]);
-  // Le glisser-déposer réordonne `sortedGrids` (le sous-ensemble affiché) et
-  // enregistre directement ce résultat comme nouvelle liste complète : ça ne
-  // reste cohérent que si ce sous-ensemble couvre déjà tout le reste (pas de
-  // recherche, aucune grille archivée qui resterait en dehors du champ). Dans
-  // tout autre cas la poignée est masquée pour éviter d'écraser silencieusement
-  // le classement par un simple sous-ensemble filtré.
-  const draggable = searchQuery.trim() === "" && filteredGrids.length === grids.length;
+  // Le glisser-déposer (et son équivalent clavier Monter/Descendre, voir
+  // moveGrid) portent sur `sortedGrids`, le sous-ensemble affiché — filtré par
+  // la recherche/la vue Actives-Archivées, puis trié par épinglées. Masquée
+  // par le filtre en cours, une grille reste néanmoins bien réelle dans
+  // `grids` ; `reorderVisible` (via `mergeVisibleOrder`, voir lib/reorder.ts)
+  // réinjecte le nouvel ordre affiché dans la liste complète sans déplacer ni
+  // perdre les grilles qui n'apparaissent pas à l'écran en ce moment. Pas
+  // besoin d'un seul élément pour se réordonner soi-même.
+  const draggable = sortedGrids.length > 1;
+
+  // Annonce le nouveau rang à l'écran, en plus du déplacement visuel :
+  // indispensable pour Monter/Descendre (voir moveGrid), sinon un lecteur
+  // d'écran n'a aucun moyen de savoir qu'une grille a changé de position — le
+  // glisser-déposer souris/tactile, lui, reste visible sans cette annonce.
+  const [reorderAnnouncement, setReorderAnnouncement] = useState("");
 
   function handleDuplicate(grid: Grid) {
     const timestamp = now();
@@ -326,18 +335,32 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     updateGridById(id, (g) => ({ ...g, archived: !g.archived }));
   }
 
-  // Alternative clavier au glisser-déposer (pointer-only — voir `draggable`
-  // plus haut, dont cette fonction partage la même contrainte de cohérence) :
-  // échange deux grilles adjacentes dans la liste triée affichée, exactement
-  // comme le fait `Reorder.Group` ci-dessous via `onReorder={persist}`.
-  // `index`/`target` sont toujours valides ici : GridCard ne fournit
-  // onMoveUp/onMoveDown (voir plus bas) que lorsqu'ils le sont déjà.
+  // Point d'entrée commun au glisser-déposer (`Reorder.Group.onReorder`
+  // ci-dessous) et à son équivalent clavier (`moveGrid` ci-dessous) : les deux
+  // ne portent que sur `sortedGrids`, le sous-ensemble affiché, donc tous deux
+  // passent par `mergeVisibleOrder` pour réinjecter ce nouvel ordre dans la
+  // liste complète sans déplacer les grilles filtrées hors du champ (voir le
+  // commentaire sur `draggable` plus haut).
+  function reorderVisible(newOrder: Grid[]) {
+    persist(mergeVisibleOrder(grids, newOrder));
+  }
+
+  // Alternative clavier au glisser-déposer (pointer-only — voir le
+  // drag-handle de GridCard) : échange deux grilles adjacentes dans la liste
+  // triée affichée, et annonce le nouveau rang via la région aria-live plus
+  // bas — un glisser-déposer réussi est visible à l'écran, mais silencieux
+  // pour un lecteur d'écran sans cette annonce explicite. `index`/`target`
+  // sont toujours valides ici : GridCard ne fournit onMoveUp/onMoveDown (voir
+  // plus bas) que lorsqu'ils le sont déjà.
   function moveGrid(id: string, direction: -1 | 1) {
     const index = sortedGrids.findIndex((g) => g.id === id);
     const target = index + direction;
-    const next = sortedGrids.slice();
-    [next[index], next[target]] = [next[target], next[index]];
-    persist(next);
+    const newOrder = sortedGrids.slice();
+    [newOrder[index], newOrder[target]] = [newOrder[target], newOrder[index]];
+    reorderVisible(newOrder);
+    setReorderAnnouncement(
+      `Grille « ${sortedGrids[index].title} » déplacée en position ${target + 1} sur ${sortedGrids.length}`
+    );
   }
 
   // Calculés une fois pour servir à la fois d'aria-label et d'infobulle sur
@@ -370,6 +393,14 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
 
   return (
     <>
+      {/* Muette visuellement, cette région relaie à un lecteur d'écran le
+          déplacement effectué par Monter/Descendre (voir moveGrid) — le seul
+          des deux chemins de réordonnancement qui reste autrement invisible
+          en dehors de l'écran. */}
+      <span className="sr-only" aria-live="polite">
+        {reorderAnnouncement}
+      </span>
+
       {focusMode && (
         <button
           className="focus-exit-btn"
@@ -523,7 +554,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
           )}
         </div>
       ) : (
-        <Reorder.Group as="div" axis="y" values={sortedGrids} onReorder={persist} className="grid-list">
+        <Reorder.Group as="div" axis="y" values={sortedGrids} onReorder={reorderVisible} className="grid-list">
           {sortedGrids.map((grid, index) => (
             <GridCard
               key={grid.id}

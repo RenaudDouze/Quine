@@ -213,6 +213,44 @@ describe("GridCard", () => {
     expect(cells[0]).not.toHaveClass("marked");
   });
 
+  describe("retour haptique", () => {
+    // Absent de jsdom (comme sur la plupart des navigateurs desktop et sur
+    // iOS Safari) : injecté explicitement pour vérifier l'appel, plutôt
+    // qu'implicite via l'optional chaining déjà exercé par les autres tests.
+    it("vibrates briefly on every cell tap, marking or unmarking", async () => {
+      const user = userEvent.setup();
+      const vibrate = vi.fn();
+      vi.stubGlobal("navigator", { ...navigator, vibrate });
+      renderCard();
+      const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+
+      await user.click(cells[0]);
+      expect(vibrate).toHaveBeenCalledWith(10);
+      await user.click(cells[0]);
+      expect(vibrate).toHaveBeenCalledTimes(2);
+
+      vi.unstubAllGlobals();
+    });
+
+    it("vibrates with a longer, distinct pattern when the Bingo banner first appears", async () => {
+      const user = userEvent.setup();
+      const vibrate = vi.fn();
+      vi.stubGlobal("navigator", { ...navigator, vibrate });
+      renderCard();
+      const cells = screen.getAllByRole("button", { name: /^[A-I]$/ });
+
+      await user.click(cells[0]);
+      await user.click(cells[1]);
+      vibrate.mockClear(); // ignore les deux vibrations de tap déjà comptées ci-dessus
+      await user.click(cells[2]); // complète la ligne, déclenche le Bingo
+
+      expect(await screen.findByText(/bingo !/i)).toBeInTheDocument();
+      expect(vibrate).toHaveBeenCalledWith([30, 40, 30]);
+
+      vi.unstubAllGlobals();
+    });
+  });
+
   it("exposes a cell's checked state via aria-pressed, not just color (screen readers can't perceive color)", async () => {
     const user = userEvent.setup();
     renderCard();

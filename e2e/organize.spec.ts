@@ -112,25 +112,46 @@ test('carries the custom color over to marked cells and the win banner during pl
   )
 })
 
-test('drag handles are hidden once a grid is archived, and reappear once no grid is archived', async ({ page }) => {
+test('the drag handle is hidden with a single grid, and reappears once a second grid exists', async ({ page }) => {
+  await createGrid(page, { title: 'Alpha', size: 3, items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] })
+  await page.goto('/')
+
+  await expect(page.getByRole('button', { name: 'Réordonner' })).toHaveCount(0)
+
+  await createGrid(page, { title: 'Bravo', size: 3, items: ['J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'] })
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Réordonner' })).toHaveCount(2)
+})
+
+test('reorders grids while another grid is archived, leaving the archived grid exactly where it was', async ({ page }) => {
   await createGrid(page, { title: 'Alpha', size: 3, items: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] })
   await page.goto('/')
   await createGrid(page, { title: 'Bravo', size: 3, items: ['J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'] })
   await page.goto('/')
+  await createGrid(page, { title: 'Charlie', size: 3, items: ['S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA'] })
+  await page.goto('/')
 
-  await expect(page.getByRole('button', { name: 'Réordonner' })).toHaveCount(2)
-
+  // Bravo (au milieu) part archivé : la vue Actives n'affiche donc plus
+  // qu'Alpha et Charlie, dans cet ordre.
   await customize(page, 'Bravo')
   await page.getByRole('button', { name: /Archiver cette grille/ }).click()
-  await expect(page.getByRole('button', { name: 'Réordonner' })).toHaveCount(0)
+  await expect(page.locator('.card-title')).toHaveCount(2)
 
+  // Toujours réordonnable malgré la grille masquée par le filtre : Alpha et
+  // Charlie s'échangent sans que Bravo ne bouge de sa place dans le stockage.
+  await expect(page.getByRole('button', { name: 'Réordonner' })).toHaveCount(2)
+  await page.getByRole('button', { name: 'Descendre' }).first().click()
+  expect(await page.locator('.card-title').allTextContents()).toEqual(['Charlie', 'Alpha'])
+
+  // La grille archivée réapparaît toujours à sa place d'origine (entre
+  // Alpha et Charlie, désormais permutés) une fois désarchivée.
   await openMenu(page)
   await page.getByRole('button', { name: /Vue :/ }).click()
   await customize(page, 'Bravo')
   await page.getByRole('button', { name: /Désarchiver cette grille/ }).click()
   await openMenu(page)
   await page.getByRole('button', { name: /Vue :/ }).click()
-  await expect(page.getByRole('button', { name: 'Réordonner' })).toHaveCount(2)
+  expect(await page.locator('.card-title').allTextContents()).toEqual(['Charlie', 'Bravo', 'Alpha'])
 })
 
 test('reorders grids by dragging a card by its handle', async ({ page }) => {
