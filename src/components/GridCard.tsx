@@ -78,6 +78,10 @@ function GridCard({
     prevBannerVisible.current = bannerVisible;
     if (!wasVisible && bannerVisible) {
       setCelebrating(true);
+      // Motif plus long et distinct du simple pouls d'une case cochée
+      // (toggleCell) : renforce le confetti/bandeau à l'apparition d'un vrai
+      // Bingo, plutôt qu'une case parmi d'autres.
+      navigator.vibrate?.([30, 40, 30]);
       clearTimeout(celebrateTimer.current);
       celebrateTimer.current = setTimeout(() => setCelebrating(false), CELEBRATION_DURATION_MS);
     }
@@ -89,6 +93,11 @@ function GridCard({
   // plus appelée que pour une case togglable — plus besoin d'y revérifier
   // `free` en interne.
   function toggleCell(i: number) {
+    // Absent sur la plupart des navigateurs desktop et sur iOS Safari :
+    // l'appel optionnel évite une erreur silencieuse, le retour haptique est
+    // un bonus, pas un pré-requis — comme dans +1 (`bump`).
+    navigator.vibrate?.(10);
+
     const wasMarked = grid.cells[i].marked;
     const cells = grid.cells.map((c, idx) => (idx === i ? { ...c, marked: !c.marked } : c));
 

@@ -546,30 +546,88 @@ describe("HomeView", () => {
   });
 
   describe("glisser-déposer (éligibilité)", () => {
-    it("shows a drag handle when nothing is filtered and no grid is archived", () => {
+    it("shows a drag handle when at least two grids are displayed", () => {
       saveGrids([makeGrid({ id: "a", title: "Alpha" }), makeGrid({ id: "b", title: "Bravo" })]);
       renderHome();
       expect(screen.getAllByRole("button", { name: "Réordonner" })).toHaveLength(2);
     });
 
-    it("hides drag handles while a search query is active", async () => {
-      const user = userEvent.setup();
-      saveGrids([makeGrid({ id: "a", title: "Alpha" }), makeGrid({ id: "b", title: "Bravo" })]);
+    it("hides the drag handle when a single grid is displayed (nothing to reorder it against)", () => {
+      saveGrids([makeGrid({ id: "a", title: "Alpha" })]);
       renderHome();
-      openMenu();
-      await user.click(screen.getByRole("button", { name: "Rechercher" }));
-      await user.type(screen.getByPlaceholderText(/rechercher une grille/i), "Alpha");
-
       expect(screen.queryByRole("button", { name: "Réordonner" })).not.toBeInTheDocument();
     });
 
-    it("hides drag handles on the active tab as soon as any grid is archived", () => {
+    it("still shows drag handles while a search query is active, since reordering now stays safe under a filter", async () => {
+      const user = userEvent.setup();
+      // "ha" ne filtre que "Bravo" : Alpha et Charlie restent visibles, donc
+      // réordonnables entre eux.
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha" }),
+        makeGrid({ id: "b", title: "Bravo" }),
+        makeGrid({ id: "c", title: "Charlie" }),
+      ]);
+      renderHome();
+      openMenu();
+      await user.click(screen.getByRole("button", { name: "Rechercher" }));
+      await user.type(screen.getByPlaceholderText(/rechercher une grille/i), "ha");
+
+      expect(screen.getAllByRole("button", { name: "Réordonner" })).toHaveLength(2);
+    });
+
+    it("still shows drag handles on the active tab even when another grid is archived", () => {
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha" }),
+        makeGrid({ id: "b", title: "Bravo" }),
+        makeGrid({ id: "c", title: "Charlie", archived: true }),
+      ]);
+      renderHome();
+      expect(screen.getAllByRole("button", { name: "Réordonner" })).toHaveLength(2);
+    });
+  });
+
+  describe("réordonnancement et filtres (recherche, vue Actives/Archivées)", () => {
+    function cardIds() {
+      return Array.from(document.querySelectorAll<HTMLElement>("[data-grid-id]")).map((el) =>
+        el.getAttribute("data-grid-id")
+      );
+    }
+
+    it("reorders within the search results without moving the grid hidden by the query", async () => {
+      const user = userEvent.setup();
+      // "ha" matches "Alpha" et "Charlie" mais pas "Bravo" : Bravo doit rester
+      // à l'index 1 dans le stockage, alors que Alpha et Charlie s'échangent.
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha" }),
+        makeGrid({ id: "b", title: "Bravo" }),
+        makeGrid({ id: "c", title: "Charlie" }),
+      ]);
+      renderHome();
+      openMenu();
+      await user.click(screen.getByRole("button", { name: "Rechercher" }));
+      await user.type(screen.getByPlaceholderText(/rechercher une grille/i), "ha");
+      expect(cardIds()).toEqual(["a", "c"]);
+
+      await user.click(screen.getAllByRole("button", { name: "Descendre" })[0]);
+
+      expect(cardIds()).toEqual(["c", "a"]);
+      expect(loadGrids().map((g) => g.id)).toEqual(["c", "b", "a"]);
+    });
+
+    it("reorders within the active tab without moving the archived grid hidden by the tab filter", async () => {
+      const user = userEvent.setup();
       saveGrids([
         makeGrid({ id: "a", title: "Alpha" }),
         makeGrid({ id: "b", title: "Bravo", archived: true }),
+        makeGrid({ id: "c", title: "Charlie" }),
       ]);
       renderHome();
-      expect(screen.queryByRole("button", { name: "Réordonner" })).not.toBeInTheDocument();
+      expect(cardIds()).toEqual(["a", "c"]);
+
+      await user.click(screen.getAllByRole("button", { name: "Descendre" })[0]);
+
+      expect(cardIds()).toEqual(["c", "a"]);
+      expect(loadGrids().map((g) => g.id)).toEqual(["c", "b", "a"]);
     });
   });
 
@@ -636,6 +694,19 @@ describe("HomeView", () => {
       await user.click(screen.getAllByRole("button", { name: "Descendre" })[1]);
 
       expect(cardIds()).toEqual(["a", "c", "b"]);
+    });
+
+    it("announces the new position via an aria-live region, invisible on the drag-and-drop path but essential here for screen readers", async () => {
+      const user = userEvent.setup();
+      saveGrids([
+        makeGrid({ id: "a", title: "Alpha" }),
+        makeGrid({ id: "b", title: "Bravo" }),
+      ]);
+      renderHome();
+
+      await user.click(screen.getAllByRole("button", { name: "Descendre" })[0]);
+
+      expect(screen.getByText("Grille « Alpha » déplacée en position 2 sur 2")).toBeInTheDocument();
     });
   });
 
