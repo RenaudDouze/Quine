@@ -60,7 +60,10 @@ Its commands run from inside `worker/`: `npm test`, `npm run typecheck`,
 - All six CI jobs (lint, typecheck, unit tests + coverage, Playwright e2e,
   mutation testing, dependency audit) plus a separate `worker/` job
   (typecheck + tests + its own `npm audit`) run on every PR and push to
-  `main`, defined in `.github/workflows/ci.yml`.
+  `main`, defined in `.github/workflows/ci.yml`. CodeQL
+  (`.github/workflows/codeql.yml`) and Dependabot (`.github/dependabot.yml`,
+  covering the root app, `worker/`, and GitHub Actions versions) are also
+  configured.
 - **`typescript` is pinned to `~6.0.2` and `vitest`/`@vitest/coverage-v8` are
   pinned to `^4.1.11`, deliberately behind their latest majors** — both were
   tried and reverted because they break the Stryker mutation-testing
