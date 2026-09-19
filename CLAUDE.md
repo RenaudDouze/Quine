@@ -47,7 +47,7 @@ Its commands run from inside `worker/`: `npm test`, `npm run typecheck`,
   `vitest.config.ts` on all of `src/**/*.{ts,tsx}` (excluding `main.tsx`,
   `vite-env.d.ts`, `src/test/**`). `npm run test:coverage` fails the build
   otherwise. This is also the "Tests unitaires + couverture" CI job.
-- **100% mutation score** is enforced by `stryker.config.json`, but only for
+- **100% mutation score** is enforced by `stryker.config.mjs`, but only for
   the pure-logic files listed under `mutate` (currently `src/lib/bingo.ts`,
   `share.ts`, `colors.ts`, `url.ts`, `download.ts`, `gridImage.ts`,
   `print.ts`, `remoteSync.ts`, `pdfExport.ts`). Component/CSS-only changes
