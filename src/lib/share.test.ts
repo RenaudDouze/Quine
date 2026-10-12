@@ -174,6 +174,12 @@ describe("parseBackupJson", () => {
     expect(parseBackupJson(JSON.stringify([{ title: "A", items: [] }]))?.[0].size).toBe(3);
     expect(parseBackupJson(JSON.stringify([{ title: "A", size: 0, items: [] }]))?.[0].size).toBe(3);
     expect(parseBackupJson(JSON.stringify([{ title: "A", size: -1, items: [] }]))?.[0].size).toBe(3);
+    // Une taille qui n'est pas un nombre mais se compare quand même à 0 comme
+    // positive une fois coercée (ex: une chaîne numérique) ne doit pas passer
+    // au travers du garde-fou de type : sans le `typeof === "number"`, le
+    // champ serait conservé tel quel (une chaîne, pas un nombre) plutôt que
+    // de retomber sur la valeur par défaut.
+    expect(parseBackupJson(JSON.stringify([{ title: "A", size: "5", items: [] }]))?.[0].size).toBe(3);
   });
 
   it("conserve la taille fournie", () => {

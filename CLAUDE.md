@@ -50,11 +50,14 @@ Its commands run from inside `worker/`: `npm test`, `npm run typecheck`,
 - **100% mutation score** is enforced by `stryker.config.mjs`, but only for
   the pure-logic files listed under `mutate` (currently `src/lib/bingo.ts`,
   `share.ts`, `colors.ts`, `url.ts`, `download.ts`, `gridImage.ts`,
-  `print.ts`, `remoteSync.ts`, `pdfExport.ts`). Component/CSS-only changes
-  don't affect this score; a new pure-logic file should be added to that
-  list. Where a mutant is truly behaviorally equivalent, it's suppressed
-  inline with a `// Stryker disable next-line <MutatorName>: <reasoning>`
-  comment rather than a weaker test — see existing examples in
+  `print.ts`, `remoteSync.ts`, `pdfExport.ts`, `reorder.ts`). Component/CSS-only
+  changes don't affect this score; a new pure-logic file should be added to
+  that list **and** to `commandRunner.command`'s hand-maintained test-file
+  list in the same config (see below) — forgetting the second one makes
+  every mutant in the new file survive silently, since no test is actually
+  run against it. Where a mutant is truly behaviorally equivalent, it's
+  suppressed inline with a `// Stryker disable next-line <MutatorName>:
+  <reasoning>` comment rather than a weaker test — see existing examples in
   `src/lib/bingo.ts` and `gridImage.ts` for the expected style.
 - `oxlint --deny-warnings` and `tsc -b` must both be clean.
 - All six CI jobs (lint, typecheck, unit tests + coverage, Playwright e2e,
@@ -64,23 +67,23 @@ Its commands run from inside `worker/`: `npm test`, `npm run typecheck`,
   (`.github/workflows/codeql.yml`) and Dependabot (`.github/dependabot.yml`,
   covering the root app, `worker/`, and GitHub Actions versions) are also
   configured.
-- **`typescript` is pinned to `~6.0.2` and `vitest`/`@vitest/coverage-v8` are
-  pinned to `^4.1.11`, deliberately behind their latest majors** — both were
-  tried and reverted because they break the Stryker mutation-testing
-  pipeline: TypeScript 7 removes the compiler API
-  (`ts.parseConfigFileTextToJson`) that `@stryker-mutator/core`'s
-  `ts-config-preprocessor` depends on, crashing `stryker run` outright;
-  Vitest 5 passes every other check (lint, typecheck, tests, e2e, build)
-  but silently collapses the mutation score from 100% to ~3% —
-  `@stryker-mutator/vitest-runner`'s test-attribution logic doesn't work
-  correctly under Vitest 5, despite its permissive `vitest: >=2.0.0` peer
-  dependency. Don't bump either without re-verifying `npm run test:mutation`
-  stays at 100%, not just that the other checks pass. Also: a bare `npm
-  update`/`npm install` can crash with a known npm 10.9.7 Arborist resolver
-  bug on this peer-dependency shape (`Cannot read properties of null
-  (reading 'edgesOut')`); update dependencies via targeted
-  `npm install <pkg>@<version>` calls instead, and never commit a lockfile
-  produced with `--legacy-peer-deps` (it's incompatible with `npm ci`).
+- `typescript` (`^7.0.2`) and `vitest`/`@vitest/coverage-v8` (`^5.0.4`) are
+  current — they used to be pinned behind their latest majors because both
+  broke the Stryker mutation-testing pipeline (TypeScript 7 removes the
+  compiler API Stryker's own tsconfig-rewriting preprocessor depends on,
+  crashing `stryker run` outright; Vitest 5 silently collapses the mutation
+  score from 100% to ~3% under the official `@stryker-mutator/vitest-runner`
+  integration, with every other check staying green). Both are now resolved
+  by `stryker.config.mjs`'s `testRunner: "command"` + `tsconfigFile:
+  "tsconfig.stryker-unused.json"` (see the comments in that file) rather
+  than by holding versions back — don't revert to `testRunner: "vitest"` or
+  drop the `tsconfigFile` override without re-verifying `npm run
+  test:mutation` stays at 100%. Also: a bare `npm update`/`npm install` can
+  crash with a known npm 10.9.7 Arborist resolver bug on this
+  peer-dependency shape (`Cannot read properties of null (reading
+  'edgesOut')`); update dependencies via targeted `npm install
+  <pkg>@<version>` calls instead, and never commit a lockfile produced with
+  `--legacy-peer-deps` (it's incompatible with `npm ci`).
 
 ## Architecture
 

@@ -46,6 +46,10 @@ describe("printGrid", () => {
   it("does nothing but still print when no element matches the given id", () => {
     expect(() => printGrid("missing")).not.toThrow();
     expect(printSpy).toHaveBeenCalledTimes(1);
+
+    // Le cleanup (afterprint) doit aussi rester sans effet de bord négatif
+    // une fois déclenché, sans élément à nettoyer.
+    expect(() => window.dispatchEvent(new Event("afterprint"))).not.toThrow();
   });
 
   it("registers the afterprint cleanup as a one-time listener", () => {

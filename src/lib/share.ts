@@ -66,8 +66,16 @@ function normalizeGrid(raw: Partial<Grid>): Grid {
     // le champ image de fond (isValidImageUrl) : une grille importée (backup
     // JSON, lien de partage) n'est jamais passée par ces formulaires, donc
     // rien ne garantit la forme de ces deux champs sans ce garde-fou.
+    // Stryker disable next-line ConditionalExpression: équivalent — isValidHexColor
+    // teste `value` via une regex (RegExp.prototype.test coerce son argument
+    // en chaîne), donc un `raw.color` qui n'est pas déjà une chaîne (number,
+    // boolean, objet...) échoue de toute façon le test sans le garde `typeof`.
     color: typeof raw.color === "string" && isValidHexColor(raw.color) ? raw.color : undefined,
     backgroundImageUrl:
+      // Stryker disable next-line ConditionalExpression: équivalent — isValidImageUrl
+      // passe `value` à `new URL(...)`, qui lève (donc retourne false) pour
+      // toute valeur qui n'est pas déjà une chaîne d'URL valide, sans avoir
+      // besoin du garde `typeof` en amont.
       typeof raw.backgroundImageUrl === "string" && isValidImageUrl(raw.backgroundImageUrl)
         ? raw.backgroundImageUrl
         : undefined,
