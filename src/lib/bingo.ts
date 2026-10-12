@@ -165,6 +165,11 @@ function checkCornersWin(cells: Cell[], size: number): WinResult {
   return { hasWin, winSet: hasWin ? new Set(corners) : new Set() };
 }
 
+// Stryker disable next-line StringLiteral: équivalent — rule prend ici
+// n'importe quelle valeur par défaut autre que "blackout"/"corners" (voir
+// le `return checkLineWin` ci-dessous), donc la valeur exacte du littéral
+// par défaut ("line" vs n'importe quelle autre chaîne) n'affecte jamais le
+// comportement observable.
 export function checkWin(cells: Cell[], size: number, rule: WinRule = "line"): WinResult {
   if (rule === "blackout") return checkBlackoutWin(cells);
   if (rule === "corners") return checkCornersWin(cells, size);
