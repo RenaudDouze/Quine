@@ -7,6 +7,10 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+        exclude-patterns:
+          - "typescript"
+          - "vitest"
+          - "@vitest/coverage-v8"
     open-pull-requests-limit: 10
 
   - package-ecosystem: npm
