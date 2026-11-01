@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Quine (GitHub repo: `RenaudDouze/Quine`) is a PWA for playing bingo with custom
+Quine (GitHub repo: `douzeEnsemble/Quine`) is a PWA for playing bingo with custom
 grids: a user types their own list of phrases/words, generates a 3×3, 4×4 or
 5×5 grid from them, and plays by clicking cells to mark them — a win (line,
 blackout, or corners, configurable) is detected automatically. Grids persist
