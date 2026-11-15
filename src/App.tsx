@@ -3,7 +3,7 @@ import { useHashRoute } from "./hooks/useHashRoute";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useSystemDarkMode } from "./hooks/useSystemDarkMode";
 import { decodeGridsFromParam } from "./lib/share";
-import { loadGrids, saveGrids } from "./lib/storage";
+import { loadGrids, saveGrids, uid } from "./lib/storage";
 import HomeView from "./views/HomeView";
 import EditorView from "./views/EditorView";
 
@@ -29,39 +29,43 @@ export default function App() {
       ?.setAttribute("content", activeTheme === "dark" ? "#0f172a" : "#f8fafc");
   }, [activeTheme]);
 
-  // Bumped after an import below to force HomeView to remount (and so
+  // Renewed after an import below to force HomeView to remount (and so
   // re-read localStorage): it reads its grid list once at mount via a
   // useState initializer, so a plain save to storage from here wouldn't
   // otherwise be reflected until the next navigation.
-  const [importVersion, setImportVersion] = useState(0);
+  const [importKey, setImportKey] = useState(uid);
 
   // Import automatique si l'app est ouverte via un lien/QR de partage
   // (?import=...).
   /* oxlint-disable react/set-state-in-effect -- synchronise avec l'URL au
      chargement (source externe), pas un état dérivable pendant le rendu */
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const payload = params.get("import");
-    if (!payload) return;
+  useEffect(
+    () => {
+      const params = new URLSearchParams(window.location.search);
+      const payload = params.get("import");
+      if (!payload) return;
 
-    const imported = decodeGridsFromParam(payload);
-    const url = new URL(window.location.href);
-    url.searchParams.delete("import");
-    window.history.replaceState({}, "", url.toString());
+      const imported = decodeGridsFromParam(payload);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("import");
+      window.history.replaceState({}, "", url.toString());
 
-    if (!imported || imported.length === 0) return;
+      if (!imported || imported.length === 0) return;
 
-    const existing = loadGrids();
-    if (existing.length === 0) {
-      saveGrids(imported);
-    } else {
-      const replace = window.confirm(
-        `Importer ${imported.length} grille(s) partagée(s) ?\n\nOK pour remplacer tes ${existing.length} grille(s) actuelle(s), Annuler pour les ajouter à la suite.`
-      );
-      saveGrids(replace ? imported : [...existing, ...imported]);
-    }
-    setImportVersion((v) => v + 1);
-  }, []);
+      const existing = loadGrids();
+      if (existing.length === 0) {
+        saveGrids(imported);
+      } else {
+        const replace = window.confirm(
+          `Importer ${imported.length} grille(s) partagée(s) ?\n\nOK pour remplacer tes ${existing.length} grille(s) actuelle(s), Annuler pour les ajouter à la suite.`
+        );
+        saveGrids(replace ? imported : [...existing, ...imported]);
+      }
+      setImportKey(uid());
+    },
+    // Stryker disable next-line ArrayDeclaration: `[]` et un tableau constant non vide sont équivalents (effet monté une seule fois)
+    [],
+  );
   /* oxlint-enable react/set-state-in-effect */
 
   if (route.name === "editor") {
@@ -69,7 +73,7 @@ export default function App() {
   }
   return (
     <HomeView
-      key={importVersion}
+      key={importKey}
       themePreference={themePreference}
       onThemePreferenceChange={setThemePreference}
     />

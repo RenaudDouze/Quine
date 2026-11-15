@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { navigate, useHashRoute } from "./useHashRoute";
 
 function Probe() {
@@ -31,4 +31,19 @@ describe("navigate", () => {
     navigate("editor");
     expect(window.location.hash).toBe("#editor");
   });
+
+describe("useHashRoute — détails", () => {
+  it("lit la route déjà présente dans l'URL au montage, sans le dièse", () => {
+    window.location.hash = "editor";
+    render(<Probe />);
+    expect(screen.getByTestId("route")).toHaveTextContent(/^editor$/);
+  });
+
+  it("retire son écouteur au démontage", () => {
+    const remove = vi.spyOn(window, "removeEventListener");
+    render(<Probe />).unmount();
+    expect(remove).toHaveBeenCalledWith("hashchange", expect.any(Function));
+    remove.mockRestore();
+  });
+});
 });

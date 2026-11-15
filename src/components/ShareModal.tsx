@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { generateCardVariants, type Grid } from "../lib/bingo";
 import { downloadGridSvg } from "../lib/gridImage";
@@ -61,7 +61,6 @@ export default function ShareModal({
   const panelRef = useFocusTrap<HTMLDivElement>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -72,21 +71,21 @@ export default function ShareModal({
   const [pdfCardCount, setPdfCardCount] = useState(DEFAULT_PDF_CARDS);
   const [pdfExporting, setPdfExporting] = useState(false);
 
-  // Synchronise avec la génération asynchrone du QR code (dépend de
-  // `grids`) : ne peut pas être dérivé pendant le rendu.
+  // Lien de partage : dérivé des grilles, vide quand il n'y a rien à partager.
+  const shareUrl = useMemo(() => (grids.length === 0 ? "" : buildShareUrl(grids)), [grids]);
+
+  // Synchronise avec la génération asynchrone du QR code (dépend du lien) :
+  // ne peut pas être dérivé pendant le rendu.
   /* oxlint-disable react/set-state-in-effect -- see comment above */
   useEffect(() => {
-    if (grids.length === 0) {
+    if (shareUrl === "") {
       setQrDataUrl(null);
-      setShareUrl("");
       return;
     }
-    const url = buildShareUrl(grids);
-    setShareUrl(url);
-    QRCode.toDataURL(url, { width: 240, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } })
+    QRCode.toDataURL(shareUrl, { width: 240, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } })
       .then(setQrDataUrl)
       .catch(() => setQrDataUrl(null));
-  }, [grids]);
+  }, [shareUrl]);
   /* oxlint-enable react/set-state-in-effect */
 
   useEffect(() => {
@@ -98,7 +97,6 @@ export default function ShareModal({
   }, [onClose]);
 
   async function handleFileChosen(file: File) {
-    setError(null);
     const text = await file.text();
     const imported = parseBackupJson(text);
     if (!imported) {
@@ -317,7 +315,7 @@ export default function ShareModal({
               >
                 Exporter
               </button>
-              <button className="modal-btn" onClick={() => fileInputRef.current?.click()}>
+              <button className="modal-btn" onClick={() => fileInputRef.current!.click()}>
                 Importer
               </button>
               <input

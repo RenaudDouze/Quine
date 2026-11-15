@@ -1238,4 +1238,270 @@ describe("HomeView", () => {
       expect(screen.queryByText("Modifier « Ma grille »", { selector: "h2" })).not.toBeInTheDocument();
     });
   });
+
 });
+
+describe("HomeView — détails", () => {
+  const FAKE = { shouldAdvanceTime: true, toFake: ["setTimeout", "clearTimeout"] } as Parameters<typeof vi.useFakeTimers>[0];
+  const two = () => [makeGrid({ id: "a", title: "Un" }), makeGrid({ id: "b", title: "Deux" })];
+  const menuButton = (name: string | RegExp) => screen.getByRole("button", { name });
+  const cardOf = (title: string) => within(screen.getByText(title).closest(".grid-item") as HTMLElement);
+  const useRemoteHook = (overrides: Partial<ReturnType<typeof useRemoteSync>> = {}) => {
+    let trigger: (() => void) | undefined;
+    vi.mocked(useRemoteSync).mockImplementation((_u, _g, _s, onRemoteUpdate) => {
+      trigger = onRemoteUpdate;
+      return { code: null, status: "disabled", errorMessage: null, createCode: async () => false, joinCode: async () => "error", disable: () => {}, ...overrides };
+    });
+    return () => trigger?.();
+  };
+
+  beforeEach(() => {
+    vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    vi.mocked(useRemoteSync).mockImplementation(defaultUseRemoteSyncImpl);
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  describe("notifications et annonces", () => {
+    it("une seconde mise à jour relance le délai d'affichage du message", () => {
+      vi.useFakeTimers(FAKE);
+      const trigger = useRemoteHook();
+      renderHome();
+      act(() => trigger());
+      act(() => {
+        vi.advanceTimersByTime(3_000);
+      });
+      act(() => trigger());
+      act(() => {
+        vi.advanceTimersByTime(3_000);
+      });
+      expect(screen.getByText("Grilles mises à jour depuis un autre appareil")).toBeInTheDocument();
+    });
+
+    it("la région d'annonce est vide au départ", () => {
+      renderHome();
+      expect(document.querySelector('.sr-only[aria-live="polite"]')).toHaveTextContent("");
+    });
+  });
+
+  describe("menu", () => {
+    it.each([["Thème : Auto"], ["Synchroniser mes grilles"], ["Mode focus"], ["Plein écran"], ["Rechercher"], [/^Vue : Actives/]])(
+      "se referme après « %s »",
+      async (name) => {
+        saveGrids([makeGrid()]);
+        renderHome();
+        openMenu();
+        await act(async () => {
+          fireEvent.click(menuButton(name));
+        });
+        expect(document.querySelector(".topbar-menu")).not.toBeInTheDocument();
+      },
+    );
+
+    it("le bouton de thème porte son libellé en nom accessible et en infobulle", () => {
+      renderHome();
+      openMenu();
+      expect(menuButton("Thème : Auto")).toHaveAttribute("aria-label", "Thème : Auto");
+      expect(menuButton("Thème : Auto")).toHaveAttribute("title", "Thème : Auto");
+    });
+
+    it("marque le menu et le bouton Synchroniser en alerte seulement en erreur de synchro", () => {
+      const first = renderHome();
+      expect(menuButton(/^Ouvrir le menu/).className).toBe("icon-btn");
+      openMenu();
+      expect(menuButton(/^Synchroniser mes grilles/).className).toBe("icon-btn");
+      first.unmount();
+      useRemoteHook({ status: "error" });
+      renderHome();
+      expect(menuButton(/^Ouvrir le menu/)).toHaveClass("icon-btn--alert");
+      openMenu();
+      expect(menuButton(/^Synchroniser mes grilles/)).toHaveClass("icon-btn--alert");
+    });
+
+    it("la vue Archivées se quitte avec le même bouton", async () => {
+      saveGrids([makeGrid({ id: "a", title: "Un" }), makeGrid({ id: "b", title: "Deux", archived: true })]);
+      renderHome();
+      openMenu();
+      expect(menuButton("Vue : Actives (1 archivée(s))")).toBeInTheDocument();
+      fireEvent.click(menuButton("Vue : Actives (1 archivée(s))"));
+      expect(screen.getByText("Deux")).toBeInTheDocument();
+      openMenu();
+      expect(menuButton("Vue : Archivées (1)")).toBeInTheDocument();
+      fireEvent.click(menuButton("Vue : Archivées (1)"));
+      expect(screen.getByText("Un")).toBeInTheDocument();
+      expect(screen.queryByText("Deux")).not.toBeInTheDocument();
+      openMenu();
+      expect(menuButton("Vue : Actives (1 archivée(s))")).toBeInTheDocument();
+    });
+
+    it("met le compte d'archivées à jour quand une grille est archivée", async () => {
+      saveGrids([makeGrid({ id: "a", title: "Un" })]);
+      const user = userEvent.setup();
+      renderHome();
+      await openCustomize(user, "Un");
+      await user.click(screen.getByRole("button", { name: /Archiver cette grille/ }));
+      openMenu();
+      expect(menuButton("Vue : Actives (1 archivée(s))")).toBeInTheDocument();
+    });
+
+    it("sans grille archivée, le libellé est « Vue : Actives » tout court", () => {
+      saveGrids([makeGrid()]);
+      renderHome();
+      openMenu();
+      expect(menuButton("Vue : Actives")).toBeInTheDocument();
+    });
+  });
+
+  describe("mode focus et plein écran", () => {
+    it("retire son écouteur Échap au démontage et Échap hors mode focus ne change rien", () => {
+      saveGrids([makeGrid()]);
+      const remove = vi.spyOn(document, "removeEventListener");
+      const view = renderHome();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(screen.getByRole("heading", { name: /quine/i })).toBeInTheDocument();
+      view.unmount();
+      expect(remove).toHaveBeenCalledWith("keydown", expect.any(Function));
+      expect(remove).toHaveBeenCalledWith("fullscreenchange", expect.any(Function));
+    });
+
+    it("le menu est refermé au retour du mode focus", () => {
+      saveGrids([makeGrid()]);
+      renderHome();
+      openMenu();
+      fireEvent.click(menuButton("Mode focus"));
+      fireEvent.click(menuButton("Quitter le mode focus"));
+      expect(document.querySelector(".topbar-menu")).not.toBeInTheDocument();
+    });
+
+    it("quitter le plein écran sans API exitFullscreen ne plante pas", () => {
+      saveGrids([makeGrid()]);
+      Object.defineProperty(document, "fullscreenElement", { value: document.body, configurable: true });
+      renderHome();
+      openMenu();
+      fireEvent.click(menuButton("Plein écran"));
+      openMenu();
+      expect(() => fireEvent.click(menuButton("Quitter le plein écran"))).not.toThrow();
+      Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+    });
+  });
+
+  describe("raccourcis et URL", () => {
+    it("n'écrit pas l'historique sans paramètre action", () => {
+      const replace = vi.spyOn(window.history, "replaceState");
+      renderHome();
+      expect(replace).not.toHaveBeenCalled();
+    });
+
+    it("nettoie l'URL avec un état et un titre vides", () => {
+      const replace = vi.spyOn(window.history, "replaceState");
+      window.history.pushState({}, "", "/?action=sync");
+      renderHome();
+      expect(replace).toHaveBeenCalledWith({}, "", expect.not.stringContaining("action="));
+    });
+  });
+
+  describe("recherche", () => {
+    it("la barre de recherche disparaît quand il n'y a plus de grille", async () => {
+      saveGrids([makeGrid({ id: "a", title: "Un" })]);
+      const user = userEvent.setup();
+      renderHome();
+      openMenu();
+      fireEvent.click(menuButton("Rechercher"));
+      expect(screen.getByLabelText("Rechercher une grille")).toBeInTheDocument();
+      await openCustomize(user, "Un");
+      await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      await user.click(screen.getByRole("button", { name: /Confirmer la suppression/ }));
+      expect(screen.queryByLabelText("Rechercher une grille")).not.toBeInTheDocument();
+    });
+
+    it("le message sans résultat reprend la requête sans espaces ; une requête d'espaces n'en est pas une", () => {
+      saveGrids([makeGrid({ id: "a", title: "Un", archived: true })]);
+      renderHome();
+      expect(screen.getByText("Toutes tes grilles sont archivées.")).toBeInTheDocument();
+      openMenu();
+      fireEvent.click(menuButton("Rechercher"));
+      const input = screen.getByLabelText("Rechercher une grille");
+      fireEvent.change(input, { target: { value: "   " } });
+      expect(screen.getByText("Toutes tes grilles sont archivées.")).toBeInTheDocument();
+      fireEvent.change(input, { target: { value: " zzz " } });
+      expect(document.querySelector(".empty-state p")?.textContent).toBe("Aucune grille ne correspond à « zzz ».");
+    });
+
+    it("distingue « aucune grille archivée » de « toutes archivées »", () => {
+      saveGrids([makeGrid({ id: "a", title: "Un" })]);
+      renderHome();
+      openMenu();
+      fireEvent.click(menuButton("Vue : Actives"));
+      expect(screen.getByText("Aucune grille archivée.")).toBeInTheDocument();
+    });
+  });
+
+  describe("annulation et actions sur la bonne grille", () => {
+    it("une seconde suppression relance le délai du message d'annulation", async () => {
+      vi.useFakeTimers(FAKE);
+      saveGrids(two());
+      renderHome();
+      const del = async (title: string) => {
+        fireEvent.click(cardOf(title).getByRole("button", { name: "Personnaliser" }));
+        fireEvent.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+        fireEvent.click(screen.getByRole("button", { name: /Confirmer la suppression/ }));
+      };
+      await del("Un");
+      act(() => {
+        vi.advanceTimersByTime(3_000);
+      });
+      await del("Deux");
+      act(() => {
+        vi.advanceTimersByTime(3_000);
+      });
+      expect(screen.getByText(/Grille « Deux » supprimée/)).toBeInTheDocument();
+    });
+
+    it("supprime la bonne grille seulement", async () => {
+      saveGrids(two());
+      const user = userEvent.setup();
+      renderHome();
+      await openCustomize(user, "Deux");
+      await user.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+      await user.click(screen.getByRole("button", { name: /Confirmer la suppression/ }));
+      expect(loadGrids().map((g) => g.title)).toEqual(["Un"]);
+    });
+
+    it("remélange la grille : les cases cochées sont effacées", async () => {
+      const marked = buildCells(["A", "B", "C", "D", "E", "F", "G", "H", "I"], 3, false).map((c, i) => ({ ...c, marked: i < 2 }));
+      saveGrids([makeGrid({ id: "a", title: "Un", cells: marked })]);
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+      const user = userEvent.setup();
+      renderHome();
+      await openCustomize(user, "Un");
+      await user.click(screen.getByRole("button", { name: /Remélanger/ }));
+      expect(loadGrids()[0].cells.some((c) => c.marked)).toBe(false);
+    });
+
+    it("réinitialise les coches sans toucher à la case libre", async () => {
+      const items = Array.from({ length: 24 }, (_, i) => `i${i}`);
+      const cells = buildCells(items, 5, true).map((c) => ({ ...c, marked: true }));
+      saveGrids([makeGrid({ id: "a", title: "Un", size: 5, freeCenter: true, items, cells })]);
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+      const user = userEvent.setup();
+      renderHome();
+      await openCustomize(user, "Un");
+      await user.click(screen.getByRole("button", { name: /Réinitialiser les coches/ }));
+      const after = loadGrids()[0].cells;
+      expect(after.filter((c) => c.marked)).toHaveLength(1);
+      expect(after.find((c) => c.marked)!.free).toBe(true);
+      expect(after.filter((c) => !c.free).every((c) => c.marked === false && c.label.startsWith("i"))).toBe(true);
+    });
+
+    it("partage la bonne grille avec son titre et le bon libellé de QR code", async () => {
+      saveGrids(two());
+      renderHome();
+      fireEvent.click(cardOf("Deux").getByRole("button", { name: "Partager" }));
+      expect(await screen.findByAltText('QR code de la grille Deux')).toBeInTheDocument();
+    });
+  });
+});
+

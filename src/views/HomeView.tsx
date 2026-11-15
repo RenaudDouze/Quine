@@ -143,14 +143,17 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   // ici, un simple affichage épuré dans l'espace disponible.
   const [focusMode, setFocusMode] = useState(false);
 
+  // Stryker disable ArrayDeclaration: `[]` et un tableau constant non vide sont équivalents (effet monté une seule fois)
   useEffect(() => {
-    if (!focusMode) return;
+    // Écouteur permanent : hors du mode focus, Échap ne fait que repasser
+    // `focusMode` à false (déjà faux), ce qui est sans effet.
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setFocusMode(false);
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [focusMode]);
+  }, []);
+  // Stryker restore ArrayDeclaration
 
   // Bascule indépendante vers le plein écran natif de l'appareil
   // (`requestFullscreen`) : contrairement au mode focus ci-dessus, réclame
@@ -171,6 +174,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   // par notre bouton (ex : touche Échap gérée nativement par le navigateur).
   /* oxlint-disable react/set-state-in-effect -- réagit à un événement externe
      au navigateur (sortie du plein écran natif), pas dérivable au rendu */
+  // Stryker disable ArrayDeclaration: `[]` et un tableau constant non vide sont équivalents (effet monté une seule fois)
   useEffect(() => {
     const onFullscreenChange = () => {
       if (!document.fullscreenElement) setDeviceFullscreen(false);
@@ -178,12 +182,14 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
+  // Stryker restore ArrayDeclaration
   /* oxlint-enable react/set-state-in-effect */
 
   // Action rapide depuis un raccourci de l'app installée (?action=new|sync),
   // déclarés dans le manifest PWA (voir vite.config.ts).
   /* oxlint-disable react/set-state-in-effect -- synchronise avec l'URL au
      chargement (source externe), pas un état dérivable pendant le rendu */
+  // Stryker disable ArrayDeclaration: `[]` et un tableau constant non vide sont équivalents (effet monté une seule fois)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const action = params.get("action");
@@ -196,6 +202,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
     if (action === "new") navigate("editor");
     if (action === "sync") setSyncOpen(true);
   }, []);
+  // Stryker restore ArrayDeclaration
   /* oxlint-enable react/set-state-in-effect */
 
   function persist(next: Grid[]) {
@@ -214,7 +221,6 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   function handleUndo() {
     persist(undo!.grids);
     setUndo(null);
-    clearTimeout(undoTimer.current);
   }
 
   function closeSearch() {
@@ -284,6 +290,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   // les cartes à chaque fois, pas seulement celle qui a changé. La forme
   // fonctionnelle de `setGrids` lit l'état courant sans avoir besoin de
   // `grids` en dépendance.
+  // Stryker disable ArrayDeclaration: `[]` et un tableau constant non vide sont équivalents (dépendances vides voulues, voir ci-dessus)
   const updateGrid = useCallback((next: Grid) => {
     setGrids((prev) => {
       const updated = prev.map((g) => (g.id === next.id ? { ...next, updatedAt: now() } : g));
@@ -301,6 +308,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
   const openShare = useCallback((id: string) => setShareTargetId(id), []);
   const openCustomize = useCallback((id: string) => setCustomizeTargetId(id), []);
   const openEdit = useCallback((id: string) => setEditTargetId(id), []);
+  // Stryker restore ArrayDeclaration
 
   // Remplace une seule grille, identifiée par son id, par le résultat de
   // `updater` — point d'entrée commun à tous les réglages qui ne touchent

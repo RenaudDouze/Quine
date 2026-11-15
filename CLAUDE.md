@@ -47,19 +47,27 @@ Its commands run from inside `worker/`: `npm test`, `npm run typecheck`,
   `vitest.config.ts` on all of `src/**/*.{ts,tsx}` (excluding `main.tsx`,
   `vite-env.d.ts`, `src/test/**`). `npm run test:coverage` fails the build
   otherwise. This is also the "Tests unitaires + couverture" CI job.
-- **100% mutation score** is enforced by `stryker.config.mjs`, but only for
-  the pure-logic files listed in `targets` (top of `stryker.config.mjs`:
-  `src/lib/bingo.ts`, `share.ts`, `colors.ts`, `url.ts`, `download.ts`,
-  `gridImage.ts`, `print.ts`, `remoteSync.ts`, `pdfExport.ts`, `reorder.ts`).
-  Component/CSS-only changes don't affect this score; a new pure-logic file
-  must be added to `targets` with the test file(s) that kill its mutants:
-  each mutant only re-runs those tests (running the whole suite per mutant
-  took ~30 min), and CI runs one job per module (`MUTATE` env var, matrix from
-  `.github/scripts/mutation-matrix.mjs`). Locally, `MUTATE=src/lib/bingo.ts
-  npm run test:mutation` mutates a single module. Where a mutant is truly behaviorally equivalent, it's
-  suppressed inline with a `// Stryker disable next-line <MutatorName>:
-  <reasoning>` comment rather than a weaker test — see existing examples in
-  `src/lib/bingo.ts` and `gridImage.ts` for the expected style.
+- **100% mutation score** is enforced by `stryker.config.mjs` on all of
+  `src/` except `main.tsx` and `components/icons.tsx` (entry point and static
+  SVG icons — see the comment at the top of the config). `targets` maps each
+  module to the test file(s) that kill its mutants: each mutant only re-runs
+  those tests (running the whole suite per mutant took ~30 min), and CI runs
+  one job per module (`MUTATE` env var, matrix from
+  `.github/scripts/mutation-matrix.mjs`; the job/artifact name is the path
+  without `src/`, with `/` → `-`). `views/HomeView.tsx` is too long for one job
+  (~10 min): it is split into line ranges (`'src/views/HomeView.tsx:1-220'`…),
+  one job each — re-split if code shifts across boundaries or a shard gets
+  slow. Locally, `MUTATE=src/lib/bingo.ts npm run test:mutation` mutates a
+  single module. A new file must be added to `targets` with its tests.
+  Where a mutant is truly behaviorally equivalent, prefer simplifying the code
+  (redundant `setState(null)`, dead guards, useless `useCallback`); otherwise
+  suppress it with a `// Stryker disable next-line <MutatorName>: <reasoning>`
+  comment — Stryker only reads such a comment when it directly precedes a
+  statement/node, so for a mount-only `useEffect(…, [])` wrap it between
+  `// Stryker disable ArrayDeclaration` and `// Stryker restore ArrayDeclaration`
+  (see `src/views/HomeView.tsx`). Animation/behaviour wiring that jsdom can't
+  observe is checked by wrapping framer-motion in the test (see
+  `GridCard.test.tsx`).
 - `oxlint --deny-warnings` and `tsc -b` must both be clean.
 - All six CI jobs (lint, typecheck, unit tests + coverage, Playwright e2e,
   mutation testing, dependency audit) plus a separate `worker/` job

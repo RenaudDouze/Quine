@@ -4,6 +4,10 @@
 // ces tests-là pour chaque mutant. Relancer les 10 fichiers de test pour
 // chaque mutant coûtait ~30 min ; un seul fichier par mutant, réparti sur
 // des jobs parallèles, en coûte ~3.
+//
+// Tout `src/` est muté, sauf deux exclusions assumées : `main.tsx` (simple
+// point d'entrée, exclu aussi de la couverture) et `components/icons.tsx`
+// (pictogrammes SVG statiques, sans logique à tuer).
 export const targets = {
   'src/lib/bingo.ts': ['src/lib/bingo.test.ts'],
   'src/lib/share.ts': ['src/lib/share.test.ts'],
@@ -15,6 +19,24 @@ export const targets = {
   'src/lib/remoteSync.ts': ['src/lib/remoteSync.test.ts'],
   'src/lib/pdfExport.ts': ['src/lib/pdfExport.test.ts'],
   'src/lib/reorder.ts': ['src/lib/reorder.test.ts'],
+  'src/lib/storage.ts': ['src/lib/storage.test.ts'],
+  'src/hooks/useFocusTrap.ts': ['src/hooks/useFocusTrap.test.tsx'],
+  'src/hooks/useHashRoute.ts': ['src/hooks/useHashRoute.test.tsx'],
+  'src/hooks/useLocalStorage.ts': ['src/hooks/useLocalStorage.test.ts'],
+  'src/hooks/useRemoteSync.ts': ['src/hooks/useRemoteSync.test.ts'],
+  'src/hooks/useSystemDarkMode.ts': ['src/hooks/useSystemDarkMode.test.ts'],
+  'src/components/ErrorBoundary.tsx': ['src/components/ErrorBoundary.test.tsx'],
+  'src/components/EditModal.tsx': ['src/components/EditModal.test.tsx'],
+  'src/components/GridForm.tsx': ['src/components/GridForm.test.tsx'],
+  'src/components/GridCard.tsx': ['src/components/GridCard.test.tsx'],
+  'src/components/CustomizeModal.tsx': ['src/components/CustomizeModal.test.tsx'],
+  'src/components/ShareModal.tsx': ['src/components/ShareModal.test.tsx'],
+  'src/views/EditorView.tsx': ['src/views/EditorView.test.tsx'],
+  // HomeView.tsx est découpé en plages de lignes : un job CI par plage.
+  'src/views/HomeView.tsx:1-220': ['src/views/HomeView.test.tsx'],
+  'src/views/HomeView.tsx:221-420': ['src/views/HomeView.test.tsx'],
+  'src/views/HomeView.tsx:421-700': ['src/views/HomeView.test.tsx'],
+  'src/App.tsx': ['src/App.test.tsx'],
 };
 
 const selected = process.env.MUTATE ? process.env.MUTATE.split(',') : Object.keys(targets);

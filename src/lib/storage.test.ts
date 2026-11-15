@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Grid } from "./bingo";
 import { loadGrids, saveGrids, uid } from "./storage";
 
@@ -37,4 +37,18 @@ describe("uid", () => {
     const ids = new Set(Array.from({ length: 20 }, () => uid()));
     expect(ids.size).toBe(20);
   });
+
+describe("storage — détails", () => {
+  it("écrit sous la clé bingo.grids.v1", () => {
+    saveGrids([]);
+    expect(localStorage.getItem("bingo.grids.v1")).toBe("[]");
+  });
+
+  it("uid : horodatage en base 36 suivi de 6 caractères aléatoires", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    vi.spyOn(Math, "random").mockReturnValue(0.123456789012345);
+    expect(uid()).toBe((1_700_000_000_000).toString(36) + (0.123456789012345).toString(36).slice(2, 8));
+    vi.restoreAllMocks();
+  });
+});
 });

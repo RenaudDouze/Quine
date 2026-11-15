@@ -638,3 +638,201 @@ describe("ShareModal", () => {
     });
   });
 });
+
+describe("ShareModal — détails", () => {
+  const toDataURLMock = QRCode.toDataURL as unknown as ReturnType<
+    typeof vi.fn<(text: string, opts?: unknown) => Promise<string>>
+  >;
+
+  beforeEach(() => {
+    toDataURLMock.mockReset();
+    toDataURLMock.mockResolvedValue("data:image/png;base64,fake");
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  const renderModal = (props: Partial<React.ComponentProps<typeof ShareModal>> = {}) =>
+    render(<ShareModal {...defaultProps} grids={[]} onClose={vi.fn()} {...props} />);
+  const rerenderModal = (r: ReturnType<typeof render>, props: Partial<React.ComponentProps<typeof ShareModal>> = {}) =>
+    r.rerender(<ShareModal {...defaultProps} grids={[]} onClose={vi.fn()} {...props} />);
+
+  it("génère le QR code avec les réglages attendus", async () => {
+    renderModal({ grids: [makeGrid()] });
+    await waitFor(() => expect(toDataURLMock).toHaveBeenCalled());
+    expect(toDataURLMock).toHaveBeenCalledWith(expect.stringContaining("http"), {
+      width: 240,
+      margin: 1,
+      color: { dark: "#0f172a", light: "#ffffff" },
+    });
+  });
+
+  it("régénère le QR code et le lien quand les grilles changent", async () => {
+    const r = renderModal({ grids: [makeGrid()] });
+    await screen.findByAltText("QR code");
+    toDataURLMock.mockResolvedValue("data:image/png;base64,second");
+    rerenderModal(r, { grids: [makeGrid({ title: "Autre" })] });
+    await waitFor(() =>
+      expect((screen.getByAltText("QR code") as HTMLImageElement).src).toBe("data:image/png;base64,second"),
+    );
+    expect(toDataURLMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("retire le QR code et le bouton de copie quand il n'y a plus de grille", async () => {
+    const r = renderModal({ grids: [makeGrid()] });
+    await screen.findByAltText("QR code");
+    rerenderModal(r, { grids: [] });
+    expect(screen.queryByAltText("QR code")).not.toBeInTheDocument();
+    expect(screen.queryByText("Copier le lien")).not.toBeInTheDocument();
+    expect(screen.getByText("Rien à partager")).toBeInTheDocument();
+  });
+
+  it("retire un QR code précédent quand la génération suivante échoue", async () => {
+    const r = renderModal({ grids: [makeGrid()] });
+    await screen.findByAltText("QR code");
+    toDataURLMock.mockRejectedValue(new Error("trop gros"));
+    rerenderModal(r, { grids: [makeGrid({ title: "Autre" })] });
+    await waitFor(() => expect(screen.queryByAltText("QR code")).not.toBeInTheDocument());
+  });
+
+  it("Échap appelle le dernier onClose reçu", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const r = renderModal({ onClose: first });
+    r.rerender(<ShareModal {...defaultProps} grids={[]} onClose={second} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+  });
+
+  it("porte tabindex -1 sur la boîte de dialogue et aucun message d'erreur au départ", () => {
+    renderModal();
+    expect(screen.getByRole("dialog")).toHaveAttribute("tabindex", "-1");
+    expect(document.querySelector(".modal-error")).not.toBeInTheDocument();
+  });
+
+  it("demande confirmation avec le nombre de grilles actuelles et importées", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderModal({ grids: [makeGrid()], showJsonBackup: true, onImport: vi.fn() });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File([JSON.stringify([makeGrid({ id: "x" }), makeGrid({ id: "y" })])], "b.json", { type: "application/json" });
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+    expect(confirm).toHaveBeenCalledWith(
+      "Remplacer les 1 grille(s) actuelle(s) par les 2 importée(s) ?\n\nAnnuler pour les ajouter à la place.",
+    );
+  });
+
+  it("ignore un changement d'input sans liste de fichiers", async () => {
+    const onImport = vi.fn();
+    renderModal({ showJsonBackup: true, onImport });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(input, { target: { files: null } });
+    });
+    expect(onImport).not.toHaveBeenCalled();
+  });
+
+  it("accepte exactement 2 et 100 cartes, refuse 1 et 101", async () => {
+    renderModal({ grids: [makeGrid()] });
+    fireEvent.click(await screen.findByText(/Plusieurs cartes \(PDF\)/));
+    const input = screen.getByLabelText(/Nombre de cartes/);
+    const button = screen.getByRole("button", { name: "Générer le PDF" });
+    for (const [value, disabled] of [["1", true], ["2", false], ["100", false], ["101", true]] as const) {
+      fireEvent.change(input, { target: { value } });
+      expect(button).toHaveProperty("disabled", disabled);
+    }
+  });
+
+  it("efface l'erreur d'un export PDF raté dès la tentative suivante", async () => {
+    vi.mocked(exportGridsAsPdf).mockRejectedValueOnce(new Error("raté")).mockResolvedValue(undefined);
+    renderModal({ grids: [makeGrid()] });
+    fireEvent.click(await screen.findByText(/Plusieurs cartes \(PDF\)/));
+    fireEvent.click(screen.getByRole("button", { name: "Générer le PDF" }));
+    expect(await screen.findByText(/Impossible de générer le PDF/)).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Générer le PDF" }));
+    });
+    expect(screen.queryByText(/Impossible de générer le PDF/)).not.toBeInTheDocument();
+  });
+
+  describe("avec un worker configuré", () => {
+    beforeEach(() => {
+      vi.stubEnv("VITE_SYNC_WORKER_URL", "https://sync.example.workers.dev");
+    });
+
+    const openJoin = () => {
+      fireEvent.click(screen.getByRole("button", { name: "Saisir un code" }));
+      return screen.getByPlaceholderText("XXXX XXXX");
+    };
+
+    it("expose l'état de synchro par classe et libellé (désactivé : vide ; en cours)", () => {
+      const r = renderModal({ remoteSync: makeRemoteSync({ code: "ABCDEFGH", status: "disabled" }) });
+      expect(document.querySelector(".sync-status")?.className).toBe("sync-status sync-status--disabled");
+      expect(document.querySelector(".sync-status")?.textContent).toBe("");
+      rerenderModal(r, { remoteSync: makeRemoteSync({ code: "ABCDEFGH", status: "syncing" }) });
+      expect(document.querySelector(".sync-status")?.textContent).toBe("Synchronisation…");
+    });
+
+    it("n'affiche pas le message d'erreur du hook quand l'état n'est pas en erreur", () => {
+      renderModal({ remoteSync: makeRemoteSync({ code: "ABCDEFGH", status: "synced", errorMessage: "Ancienne panne" }) });
+      expect(screen.queryByText("Ancienne panne")).not.toBeInTheDocument();
+      expect(screen.getByText("Synchronisé ✓")).toBeInTheDocument();
+    });
+
+    it("n'affiche pas d'erreur de création quand l'état n'est pas en erreur", () => {
+      renderModal({ remoteSync: makeRemoteSync({ status: "synced", errorMessage: "Ancienne panne" }) });
+      expect(screen.queryByText("Ancienne panne")).not.toBeInTheDocument();
+      expect(document.querySelector(".modal-error")).not.toBeInTheDocument();
+    });
+
+    it("« Rejoindre » reste désactivé pour une saisie d'espaces", () => {
+      renderModal({ remoteSync: makeRemoteSync() });
+      fireEvent.change(openJoin(), { target: { value: "   " } });
+      expect(screen.getByRole("button", { name: "Rejoindre" })).toBeDisabled();
+    });
+
+    it("Entrée rejoint, mais pas une autre touche ; une autre touche que Échap ne referme pas", () => {
+      const joinCode = vi.fn().mockResolvedValue("invalid");
+      renderModal({ remoteSync: makeRemoteSync({ joinCode }) });
+      const input = openJoin();
+      fireEvent.change(input, { target: { value: "ABCDEFGH" } });
+      fireEvent.keyDown(input, { key: "a" });
+      expect(joinCode).not.toHaveBeenCalled();
+      expect(screen.getByPlaceholderText("XXXX XXXX")).toBeInTheDocument();
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(joinCode).toHaveBeenCalledWith("ABCDEFGH");
+    });
+
+    it("le message précis du hook n'écrase pas l'erreur « invalide »", async () => {
+      const joinCode = vi.fn().mockResolvedValue("invalid");
+      renderModal({ remoteSync: makeRemoteSync({ joinCode, errorMessage: "Failed to fetch" }) });
+      fireEvent.change(openJoin(), { target: { value: "ABCDEFGH" } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Rejoindre" }));
+      });
+      expect(screen.getByText("Code invalide (8 caractères attendus).")).toBeInTheDocument();
+      expect(screen.queryByText("Failed to fetch")).not.toBeInTheDocument();
+    });
+
+    it("une nouvelle tentative réussie efface l'erreur précédente et vide la saisie", async () => {
+      const joinCode = vi.fn().mockResolvedValueOnce("not-found").mockResolvedValueOnce("joined");
+      renderModal({ remoteSync: makeRemoteSync({ joinCode }) });
+      fireEvent.change(openJoin(), { target: { value: "ABCDEFGH" } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Rejoindre" }));
+      });
+      expect(screen.getByText("Ce code de synchronisation est introuvable.")).toBeInTheDocument();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Rejoindre" }));
+      });
+      expect(screen.queryByText("Ce code de synchronisation est introuvable.")).not.toBeInTheDocument();
+      expect(openJoin()).toHaveValue("");
+    });
+  });
+});
+
