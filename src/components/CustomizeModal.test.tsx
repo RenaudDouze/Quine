@@ -415,3 +415,86 @@ describe("CustomizeModal", () => {
     });
   });
 });
+
+describe("CustomizeModal — détails", () => {
+  const field = () => screen.getByLabelText("URL de l'image de fond");
+
+  it("retire son écouteur Échap au démontage et appelle le dernier onClose reçu", () => {
+    const remove = vi.spyOn(document, "removeEventListener");
+    const first = vi.fn();
+    const second = vi.fn();
+    const noop = vi.fn();
+    const props = {
+      grid: makeGrid(),
+      onUpdate: noop,
+      onShuffle: noop,
+      onReset: noop,
+      onTogglePin: noop,
+      onToggleArchive: noop,
+      onDuplicate: noop,
+      onDelete: noop,
+    };
+    const { rerender, unmount } = render(<CustomizeModal {...props} onClose={first} />);
+    rerender(<CustomizeModal {...props} onClose={second} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+    unmount();
+    expect(remove).toHaveBeenCalledWith("keydown", expect.any(Function));
+    remove.mockRestore();
+  });
+
+  it("le panneau peut recevoir le focus sans entrer dans l'ordre de tabulation", () => {
+    renderModal();
+    expect(screen.getByRole("dialog")).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("marque la couleur choisie (classe) et peint chaque pastille", () => {
+    renderModal({ color: "#db2777" });
+    const options = Array.from(document.querySelectorAll<HTMLElement>(".settings-color-grid button"));
+    const selected = options.filter((o) => o.className === "color-option selected");
+    expect(selected).toHaveLength(1);
+    expect(selected[0]).toHaveAttribute("aria-label", "Choisir la couleur #db2777");
+    expect(options.filter((o) => o.className === "color-option").length).toBe(options.length - 1);
+    expect(options.every((o) => o.style.background !== "")).toBe(true);
+  });
+
+  it("aria-invalid suit la validité de l'URL, et l'erreur disparaît dès la saisie suivante ou au vidage", async () => {
+    const user = userEvent.setup();
+    renderModal();
+    expect(field()).toHaveAttribute("aria-invalid", "false");
+    await user.type(field(), "pas-une-url{Enter}");
+    expect(field()).toHaveAttribute("aria-invalid", "true");
+    await user.click(screen.getByRole("button", { name: "Vider l'image de fond" }));
+    expect(field()).toHaveAttribute("aria-invalid", "false");
+    expect(screen.queryByText(/url http\(s\) invalide/i)).not.toBeInTheDocument();
+  });
+
+  it("efface l'image (saisie vidée) avec une mise à jour qui nomme explicitement le champ", async () => {
+    const user = userEvent.setup();
+    const { onUpdate } = renderModal({ backgroundImageUrl: "https://exemple.com/a.jpg" });
+    await user.clear(field());
+    await user.keyboard("{Enter}");
+    expect(onUpdate.mock.calls.at(-1)![0]).toStrictEqual({ backgroundImageUrl: undefined });
+  });
+
+  it("efface l'image (bouton Vider) avec une mise à jour qui nomme explicitement le champ", async () => {
+    const user = userEvent.setup();
+    const { onUpdate } = renderModal({ backgroundImageUrl: "https://exemple.com/a.jpg" });
+    await user.click(screen.getByRole("button", { name: "Vider l'image de fond" }));
+    expect(onUpdate.mock.calls[0][0]).toStrictEqual({ backgroundImageUrl: undefined });
+  });
+
+  it("annule le délai de confirmation une fois la suppression confirmée", () => {
+    vi.useFakeTimers();
+    renderModal();
+    fireEvent.click(screen.getByRole("button", { name: /Supprimer cette grille/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Confirmer la suppression/ }));
+    act(() => {
+      vi.advanceTimersByTime(3_000);
+    });
+    expect(screen.getByRole("button", { name: /Confirmer la suppression/ })).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+});
+

@@ -156,4 +156,33 @@ describe("EditModal", () => {
     expect(onSave).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+describe("EditModal — détails", () => {
+  it("retire son écouteur Échap au démontage et appelle le dernier onClose reçu", () => {
+    const remove = vi.spyOn(document, "removeEventListener");
+    const first = vi.fn();
+    const second = vi.fn();
+    const grid = makeGrid();
+    const { rerender, unmount } = render(<EditModal grid={grid} onClose={first} onSave={vi.fn()} />);
+    rerender(<EditModal grid={grid} onClose={second} onSave={vi.fn()} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+    unmount();
+    expect(remove).toHaveBeenCalledWith("keydown", expect.any(Function));
+    remove.mockRestore();
+  });
+
+  it("le panneau peut recevoir le focus sans entrer dans l'ordre de tabulation", () => {
+    renderModal();
+    expect(screen.getByRole("dialog")).toHaveAttribute("tabindex", "-1");
+  });
+
+  it('prend la règle « line » quand la grille n\'en a pas, y compris à l\'enregistrement', async () => {
+    const { onSave } = renderModal({ winRule: undefined });
+    expect(screen.getByRole("combobox", { name: /condition de victoire/i })).toHaveValue("line");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Enregistrer" }));
+    expect(onSave.mock.calls[0][0].winRule).toBe("line");
+  });
+});
 });

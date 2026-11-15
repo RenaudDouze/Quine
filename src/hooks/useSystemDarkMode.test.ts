@@ -12,11 +12,16 @@ class FakeMediaQueryList {
     this.matches = matches;
   }
 
-  addEventListener(_: "change", handler: (e: MediaQueryListEvent) => void) {
+  addedTypes: string[] = [];
+  removedTypes: string[] = [];
+
+  addEventListener(type: string, handler: (e: MediaQueryListEvent) => void) {
+    this.addedTypes.push(type);
     this.listeners.add(handler);
   }
 
-  removeEventListener(_: "change", handler: (e: MediaQueryListEvent) => void) {
+  removeEventListener(type: string, handler: (e: MediaQueryListEvent) => void) {
+    this.removedTypes.push(type);
     this.listeners.delete(handler);
   }
 
@@ -71,5 +76,13 @@ describe("useSystemDarkMode", () => {
     expect(mql.listenerCount).toBe(1);
     unmount();
     expect(mql.listenerCount).toBe(0);
+  });
+
+  it("interroge la requête sombre et écoute l'évènement « change »", () => {
+    const { unmount } = renderHook(() => useSystemDarkMode());
+    expect(matchMediaSpy).toHaveBeenCalledWith("(prefers-color-scheme: dark)");
+    expect(mql.addedTypes).toEqual(["change"]);
+    unmount();
+    expect(mql.removedTypes).toEqual(["change"]);
   });
 });

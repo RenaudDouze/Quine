@@ -66,4 +66,21 @@ describe("ErrorBoundary", () => {
     screen.getByRole("button", { name: "Recharger" }).click();
     expect(reloadSpy).toHaveBeenCalledTimes(1);
   });
+
+describe("ErrorBoundary — journal", () => {
+  it("journalise l'erreur rattrapée avec un message explicite", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <ErrorBoundary fallback={() => <p>secours</p>}>
+        <Boom />
+      </ErrorBoundary>,
+    );
+    expect(spy).toHaveBeenCalledWith(
+      "Erreur rattrapée par ErrorBoundary :",
+      expect.objectContaining({ message: "boom" }),
+      expect.anything(),
+    );
+    spy.mockRestore();
+  });
+});
 });

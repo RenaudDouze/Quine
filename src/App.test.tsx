@@ -199,4 +199,48 @@ describe("App", () => {
       expect(loadGrids()).toHaveLength(0);
     });
   });
+
+describe("App — détails", () => {
+  it("persists the theme preference under bingo.theme.v1", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Ouvrir le menu" }));
+    await user.click(screen.getByRole("button", { name: "Thème : Auto" }));
+    expect(localStorage.getItem("bingo.theme.v1")).toBe(JSON.stringify("light"));
+  });
+
+  it("does not touch the history without an import param", () => {
+    const replace = vi.spyOn(window.history, "replaceState");
+    render(<App />);
+    expect(replace).not.toHaveBeenCalled();
+    replace.mockRestore();
+  });
+
+  it("cleans the URL with an empty state and title", () => {
+    const replace = vi.spyOn(window.history, "replaceState");
+    window.history.pushState({}, "", `/?import=${encodeGridsToParam([makeGrid()])}`);
+    render(<App />);
+    expect(replace).toHaveBeenCalledWith({}, "", expect.not.stringContaining("import="));
+    replace.mockRestore();
+  });
+
+  it("keeps existing grids untouched for an import link that decodes to an empty list", () => {
+    saveGrids([makeGrid({ title: "Ancienne" })]);
+    const confirm = vi.spyOn(window, "confirm");
+    window.history.pushState({}, "", `/?import=${encodeGridsToParam([])}`);
+    render(<App />);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.getByText("Ancienne")).toBeInTheDocument();
+  });
+
+  it("asks for confirmation with the number of existing and imported grids", () => {
+    saveGrids([makeGrid({ id: "a", title: "Ancienne" }), makeGrid({ id: "b", title: "Autre" })]);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    window.history.pushState({}, "", `/?import=${encodeGridsToParam([makeGrid({ id: "n", title: "Nouvelle" })])}`);
+    render(<App />);
+    expect(confirm).toHaveBeenCalledWith(
+      "Importer 1 grille(s) partagée(s) ?\n\nOK pour remplacer tes 2 grille(s) actuelle(s), Annuler pour les ajouter à la suite."
+    );
+  });
+});
 });

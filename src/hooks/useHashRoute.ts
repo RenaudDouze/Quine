@@ -12,11 +12,15 @@ function parseHash(): Route {
 export function useHashRoute(): Route {
   const [route, setRoute] = useState<Route>(parseHash);
 
-  useEffect(() => {
-    const onChange = () => setRoute(parseHash());
-    window.addEventListener("hashchange", onChange);
-    return () => window.removeEventListener("hashchange", onChange);
-  }, []);
+  useEffect(
+    () => {
+      const onChange = () => setRoute(parseHash());
+      window.addEventListener("hashchange", onChange);
+      return () => window.removeEventListener("hashchange", onChange);
+    },
+    // Stryker disable next-line ArrayDeclaration: `[]` et un tableau constant non vide sont équivalents (effet monté une seule fois)
+    [],
+  );
 
   return route;
 }

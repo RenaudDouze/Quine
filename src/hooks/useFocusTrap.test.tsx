@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useFocusTrap } from "./useFocusTrap";
 
 function TestModal({ active = true, buttonCount = 2 }: { active?: boolean; buttonCount?: number }) {
@@ -9,6 +9,17 @@ function TestModal({ active = true, buttonCount = 2 }: { active?: boolean; butto
       {Array.from({ length: buttonCount }, (_, i) => (
         <button key={i}>Bouton {i + 1}</button>
       ))}
+    </div>
+  );
+}
+
+function DefaultModal() {
+  const ref = useFocusTrap<HTMLDivElement>();
+  return (
+    <div ref={ref} tabIndex={-1} data-testid="panel">
+      <button>Un</button>
+      <button>Deux</button>
+      <button>Trois</button>
     </div>
   );
 }
@@ -84,6 +95,61 @@ describe("useFocusTrap", () => {
     render(<TestModal active={false} />);
     expect(document.activeElement).toBe(outside);
 
+    outside.remove();
+  });
+
+  it("est actif par défaut", () => {
+    render(<DefaultModal />);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Un" }));
+  });
+
+  it("laisse passer une autre touche que Tab même sur le dernier élément", () => {
+    render(<DefaultModal />);
+    screen.getByRole("button", { name: "Trois" }).focus();
+    const notPrevented = fireEvent.keyDown(screen.getByTestId("panel"), { key: "Enter" });
+    expect(notPrevented).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Trois" }));
+  });
+
+  it("bloque l'action par défaut de Tab aux deux extrémités", () => {
+    render(<DefaultModal />);
+    const panel = screen.getByTestId("panel");
+    expect(fireEvent.keyDown(panel, { key: "Tab", shiftKey: true })).toBe(false);
+    screen.getByRole("button", { name: "Trois" }).focus();
+    expect(fireEvent.keyDown(panel, { key: "Tab" })).toBe(false);
+  });
+
+  it("Maj+Tab au milieu de la liste n'est pas intercepté", () => {
+    render(<DefaultModal />);
+    const middle = screen.getByRole("button", { name: "Deux" });
+    middle.focus();
+    expect(fireEvent.keyDown(screen.getByTestId("panel"), { key: "Tab", shiftKey: true })).toBe(true);
+    expect(document.activeElement).toBe(middle);
+  });
+
+  it("Tab sur le premier élément n'est pas intercepté", () => {
+    render(<DefaultModal />);
+    expect(fireEvent.keyDown(screen.getByTestId("panel"), { key: "Tab" })).toBe(true);
+  });
+
+  it("retire son écouteur de touches au démontage", () => {
+    const remove = vi.spyOn(HTMLElement.prototype, "removeEventListener");
+    const { unmount } = render(<DefaultModal />);
+    unmount();
+    expect(remove).toHaveBeenCalledWith("keydown", expect.any(Function));
+    remove.mockRestore();
+  });
+
+  it("s'active quand `active` passe de false à true, et rend le focus quand il repasse à false", () => {
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+    const { rerender } = render(<TestModal active={false} />);
+    expect(document.activeElement).toBe(outside);
+    rerender(<TestModal active />);
+    expect(document.activeElement).toHaveTextContent("Bouton 1");
+    rerender(<TestModal active={false} />);
+    expect(document.activeElement).toBe(outside);
     outside.remove();
   });
 });

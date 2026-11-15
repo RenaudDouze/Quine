@@ -71,13 +71,15 @@ export default function CustomizeModal({
   }, [onClose]);
 
   function commitBackground() {
-    const trimmed = draftBackground.trim();
-    if (!trimmed) {
-      setBackgroundError(null);
+    // Pas de trim() : un <input type="url"> retire déjà les espaces de bord
+    // (assainissement de la valeur par le navigateur). Pas de
+    // setBackgroundError(null) non plus : une erreur n'existe qu'après un
+    // commit invalide, et toute modification de la saisie l'efface (onChange).
+    const url = draftBackground;
+    if (!url) {
       onUpdate({ backgroundImageUrl: undefined });
-    } else if (isValidImageUrl(trimmed)) {
-      setBackgroundError(null);
-      onUpdate({ backgroundImageUrl: trimmed });
+    } else if (isValidImageUrl(url)) {
+      onUpdate({ backgroundImageUrl: url });
     } else {
       setBackgroundError("URL http(s) invalide.");
     }

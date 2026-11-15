@@ -19,7 +19,7 @@ export function useFocusTrap<T extends HTMLElement>(active = true) {
     // façon inconditionnelle (jamais un montage optionnel), attaché par
     // React avant que cet effet ne s'exécute.
     const container = containerRef.current!;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previouslyFocused = document.activeElement as HTMLElement;
 
     const focusableElements = () => Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
     // Le bouton "Fermer" est toujours présent en premier dans l'en-tête : à
@@ -48,7 +48,7 @@ export function useFocusTrap<T extends HTMLElement>(active = true) {
 
     return () => {
       container.removeEventListener("keydown", onKeyDown);
-      previouslyFocused?.focus();
+      previouslyFocused.focus();
     };
   }, [active]);
 

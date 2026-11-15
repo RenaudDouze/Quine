@@ -1,10 +1,41 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Reorder } from "framer-motion";
-import { useState } from "react";
+import { type ComponentType, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildCells, type Grid } from "../lib/bingo";
 import GridCard from "./GridCard";
+
+const spies = vi.hoisted(() => ({ dragStart: vi.fn(), itemProps: [] as Record<string, unknown>[] }));
+
+// Les contrôles de glisser de framer-motion ne laissent rien d'observable
+// dans jsdom : on enveloppe `start` (il s'exécute quand même) et on relève les
+// props passées à Reorder.Item, pour vérifier le câblage réel.
+vi.mock("framer-motion", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("framer-motion")>();
+  const wrapped = new WeakSet<object>();
+  const OriginalItem = actual.Reorder.Item as ComponentType<Record<string, unknown>>;
+  const Item = ((props: Record<string, unknown>) => {
+    spies.itemProps.push(props);
+    return <OriginalItem {...props} />;
+  }) as unknown as typeof OriginalItem;
+  return {
+    ...actual,
+    Reorder: { ...actual.Reorder, Item },
+    useDragControls: () => {
+      const controls = actual.useDragControls();
+      if (!wrapped.has(controls)) {
+        wrapped.add(controls);
+        const original = controls.start.bind(controls);
+        controls.start = (...args: Parameters<typeof original>) => {
+          spies.dragStart(...args);
+          return original(...args);
+        };
+      }
+      return controls;
+    },
+  };
+});
 
 function makeGrid(overrides: Partial<Grid> = {}): Grid {
   const size = overrides.size ?? 3;
@@ -499,5 +530,90 @@ describe("GridCard", () => {
       expect(document.querySelector(".bingo-celebration")).toBeInTheDocument();
       vi.useRealTimers();
     });
+  });
+});
+
+describe("GridCard — détails", () => {
+  const board = () => document.querySelector<HTMLElement>(".board")!;
+  const cellButtons = () => screen.getAllByRole("button", { name: /^[A-I]$/ });
+
+  it("n'écoute pas le glisser sur toute la carte et lance le glisser depuis la poignée", () => {
+    spies.itemProps.length = 0;
+    spies.dragStart.mockClear();
+    renderCard();
+    expect(spies.itemProps[0].dragListener).toBe(false);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Réordonner" }));
+    expect(spies.dragStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("décrit la taille et, selon le cas, la case libre et la règle de victoire, sans résidu", () => {
+    renderCard({ size: 3 });
+    expect(document.querySelector(".card-meta")!.textContent).toBe("3 × 3");
+    cleanup();
+    renderCard({ size: 5, freeCenter: true, winRule: "corners", items: Array.from({ length: 24 }, (_, i) => `i${i}`) });
+    expect(document.querySelector(".card-meta")!.textContent).toBe("5 × 5 · case libre · quatre coins");
+  });
+
+  it("n'affiche aucune règle de victoire pour la règle par défaut", () => {
+    renderCard({ size: 3, winRule: "line" });
+    expect(document.querySelector(".card-meta")!.textContent).toBe("3 × 3");
+  });
+
+  it("applique le nombre de colonnes du plateau", () => {
+    renderCard({ size: 3 });
+    expect(board().style.gridTemplateColumns).toBe("repeat(3, 1fr)");
+  });
+
+  it("exprime l'état de chaque case par sa classe", async () => {
+    const user = userEvent.setup();
+    renderCard({ size: 3, freeCenter: true, items: ["A", "B", "C", "D", "E", "F", "G", "H"] });
+    const cells = Array.from(board().querySelectorAll("button"));
+    expect(cells.map((c) => c.className)).toEqual(
+      cells.map((_, i) => (i === 4 ? "cell marked free" : "cell")),
+    );
+    await user.click(cells[0]);
+    expect(cells[0].className).toBe("cell marked");
+    await user.click(cells[1]);
+    await user.click(cells[2]);
+    // La première ligne est gagnante : ses cases portent « win ».
+    expect(cells[0].className).toBe("cell marked win");
+    expect(cells[3].className).toBe("cell");
+  });
+
+  it("répartit les confettis en éventail avec leurs couleurs et leurs délais", async () => {
+    const user = userEvent.setup();
+    renderCard();
+    const cells = cellButtons();
+    await user.click(cells[0]);
+    await user.click(cells[1]);
+    await user.click(cells[2]);
+    const pieces = Array.from(document.querySelectorAll<HTMLElement>(".bingo-confetti"));
+    expect(pieces.map((p) => p.style.getPropertyValue("--angle"))).toEqual(
+      [-90, -65, -40, -15, 15, 40, 65, 90, -110, 110].map((a) => `${a}deg`),
+    );
+    expect(pieces.map((p) => p.style.getPropertyValue("--color"))).toEqual([
+      "#f43f5e", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#f43f5e", "#f59e0b", "#10b981", "#3b82f6",
+    ]);
+    expect(pieces.map((p) => p.style.getPropertyValue("--delay"))).toEqual(pieces.map((_, i) => `${i * 25}ms`));
+  });
+
+  it("une seconde célébration rapprochée ne s'arrête pas avec le délai de la première", () => {
+    vi.useFakeTimers();
+    renderCard();
+    const cells = cellButtons();
+    fireEvent.click(cells[0]);
+    fireEvent.click(cells[1]);
+    fireEvent.click(cells[2]); // première victoire à t=0
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+    fireEvent.click(screen.getByText(/bingo !/i));
+    fireEvent.click(cells[3]);
+    fireEvent.click(cells[6]); // seconde victoire à t=800
+    act(() => {
+      vi.advanceTimersByTime(500); // t=1300 : le délai de la première est passé, pas celui de la seconde
+    });
+    expect(document.querySelector(".bingo-celebration")).toBeInTheDocument();
+    vi.useRealTimers();
   });
 });

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import GridForm from "./GridForm";
@@ -118,4 +118,71 @@ describe("GridForm", () => {
     await user.click(screen.getByRole("button", { name: "Générer" }));
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ winRule }));
   });
+
+describe("GridForm — détails", () => {
+  const hint = () => screen.getByTestId("count-hint");
+  const textarea = () => screen.getByPlaceholderText(/écrivez chaque phrase/i);
+
+  it("expects 25 cells for a 5x5 grid without free center, 24 with it, and 16 for a 4x4", async () => {
+    const user = userEvent.setup();
+    render(<GridForm submitLabel="Générer" onSubmit={vi.fn()} />);
+    expect(hint()).toHaveTextContent("0 / 25");
+    await user.click(screen.getByLabelText(/case centrale libre/i));
+    expect(hint()).toHaveTextContent("0 / 24");
+    await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "4");
+    expect(hint()).toHaveTextContent("0 / 16");
+  });
+
+  it("clears the free center when switching to an even size, and keeps it for an odd one", async () => {
+    const user = userEvent.setup();
+    render(<GridForm submitLabel="Générer" onSubmit={vi.fn()} />);
+    const size = screen.getByRole("combobox", { name: /taille de la grille/i });
+    const free = screen.getByLabelText(/case centrale libre/i);
+    await user.click(free);
+    await user.selectOptions(size, "3");
+    expect(free).toBeChecked();
+    await user.selectOptions(size, "4");
+    expect(free).not.toBeChecked();
+    await user.selectOptions(size, "5");
+    expect(free).not.toBeChecked();
+  });
+
+  it("ignores blank lines and trims each entry", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(<GridForm submitLabel="Générer" onSubmit={onSubmit} />);
+    await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "3");
+    await user.type(textarea(), "  A  {Enter}{Enter}   {Enter}B{Enter}C{Enter}D{Enter}E{Enter}F{Enter}G{Enter}H{Enter}I");
+    expect(hint()).toHaveTextContent("9 / 9");
+    await user.click(screen.getByRole("button", { name: "Générer" }));
+    expect(onSubmit.mock.calls[0][0].items).toEqual(["A", "B", "C", "D", "E", "F", "G", "H", "I"]);
+  });
+
+  it("counts lines, not characters", async () => {
+    const user = userEvent.setup();
+    render(<GridForm submitLabel="Générer" onSubmit={vi.fn()} />);
+    await user.type(textarea(), "abc");
+    expect(hint()).toHaveTextContent("1 / 25");
+  });
+
+  it("blocks the browser's default submit", () => {
+    render(<GridForm submitLabel="Générer" onSubmit={vi.fn()} />);
+    expect(fireEvent.submit(screen.getByRole("button", { name: "Générer" }).closest("form")!)).toBe(false);
+  });
+
+  it("describes the shortfall, the exact count and the surplus, with matching styles", async () => {
+    const user = userEvent.setup();
+    render(<GridForm submitLabel="Générer" onSubmit={vi.fn()} />);
+    await user.selectOptions(screen.getByRole("combobox", { name: /taille de la grille/i }), "3");
+    await user.type(textarea(), "A{Enter}B");
+    expect(hint().textContent).toBe("2 / 9 cases renseignées — ajoutez encore 7 entrée(s).");
+    expect(hint().className).toBe("hint hint-error");
+    await user.type(textarea(), "{Enter}C{Enter}D{Enter}E{Enter}F{Enter}G{Enter}H{Enter}I");
+    expect(hint().textContent).toBe("9 / 9 cases renseignées ✓");
+    expect(hint().className).toBe("hint hint-ok");
+    await user.type(textarea(), "{Enter}J");
+    expect(hint().textContent).toBe("10 / 9 cases renseignées (le surplus sera pioché au hasard) ✓");
+    expect(hint().className).toBe("hint hint-ok");
+  });
+});
 });

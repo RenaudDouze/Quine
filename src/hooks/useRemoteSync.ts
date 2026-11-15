@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocalStorage } from "./useLocalStorage";
 import { createSyncCode, fetchSyncState, isValidSyncCode, normalizeSyncCode, pushSyncState } from "../lib/remoteSync";
 import type { Grid } from "../lib/bingo";
@@ -64,16 +64,12 @@ export function useRemoteSync(
   // mise à jour distante.
   const [storedVersion, setStoredVersion] = useLocalStorage("bingo.sync.version.v1", 0);
   const lastSyncedVersionRef = useRef(storedVersion);
-  // Identité stable (comme `setStoredVersion`, un setter de useState) : peut
-  // figurer dans un tableau de dépendances d'effet sans le redéclencher à
-  // chaque rendu.
-  const setSyncedVersion = useCallback(
-    (version: number) => {
-      lastSyncedVersionRef.current = version;
-      setStoredVersion(version);
-    },
-    [setStoredVersion]
-  );
+  // Pas de useCallback : `setStoredVersion` (un setter de useState) et la ref
+  // ont déjà une identité stable, la mémoïser n'apporterait rien.
+  const setSyncedVersion = (version: number) => {
+    lastSyncedVersionRef.current = version;
+    setStoredVersion(version);
+  };
   // Vrai le temps d'appliquer un `grids` reçu du serveur : évite que l'effet
   // de poussée ci-dessous ne le retransmette aussitôt comme s'il s'agissait
   // d'une modification locale (boucle infinie).
@@ -124,7 +120,10 @@ export function useRemoteSync(
       cancelled = true;
       clearInterval(interval);
     };
-  }, [workerUrl, code, setGrids, setCode, setSyncedVersion]);
+    // `setSyncedVersion` est recréée à chaque rendu mais ne dépend que de
+    // refs et d'un setter de useState : l'omettre ici est sans risque.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workerUrl, code, setGrids, setCode]);
 
   useEffect(() => {
     const isFirstRun = isFirstPushEffectRunRef.current;
@@ -136,7 +135,8 @@ export function useRemoteSync(
       return;
     }
 
-    clearTimeout(pushTimerRef.current);
+    // Le nettoyage de l'exécution précédente (ci-dessous) a déjà annulé toute
+    // poussée en attente : un changement rapproché la remplace donc par celle-ci.
     pushTimerRef.current = setTimeout(async () => {
       try {
         const result = await pushSyncState(workerUrl, code, {

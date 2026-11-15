@@ -124,4 +124,13 @@ describe("useLocalStorage", () => {
       expect(result.current[0]).toBe("nouvelle-valeur");
     });
   });
+
+  it("écoute la nouvelle clé quand `key` change", () => {
+    const { result, rerender } = renderHook(({ k }) => useLocalStorage(k, "défaut"), { initialProps: { k: "clé-a" } });
+    rerender({ k: "clé-b" });
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: "clé-b", newValue: JSON.stringify("depuis-b") }));
+    });
+    expect(result.current[0]).toBe("depuis-b");
+  });
 });

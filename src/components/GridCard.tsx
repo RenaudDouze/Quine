@@ -98,22 +98,19 @@ function GridCard({
     // un bonus, pas un pré-requis — comme dans +1 (`bump`).
     navigator.vibrate?.(10);
 
-    const wasMarked = grid.cells[i].marked;
     const cells = grid.cells.map((c, idx) => (idx === i ? { ...c, marked: !c.marked } : c));
 
-    // Marking (not unmarking) a cell can newly complete a line that wasn't
-    // already part of the currently-won lines — e.g. finishing a second
-    // line while the first stays marked, or re-completing a line that was
-    // broken and re-marked. Only that case should bring a dismissed banner
-    // back; unmarking a cell must never show it, even if it happens to
-    // leave a *different*, already-won line as the only one still
-    // complete (checkWin's winSet is the union of every complete line, so
-    // its content can shrink on unmark without hasWin becoming false).
-    if (!wasMarked) {
-      const newWinSet = checkWin(cells, grid.size, grid.winRule).winSet;
-      if ([...newWinSet].some((idx) => !winSet.has(idx))) {
-        setDismissed(false);
-      }
+    // Une case cochée peut compléter une ligne qui ne faisait pas déjà partie
+    // des lignes gagnantes actuelles — ex : terminer une seconde ligne alors
+    // que la première reste cochée, ou re-compléter une ligne cassée puis
+    // recochée : seul ce cas ramène un bandeau fermé. Décocher une case ne
+    // peut jamais créer de nouvelle ligne complète (winSet est l'union de
+    // toutes les lignes complètes : il ne peut que rétrécir), donc un décochage
+    // ne ré-affiche jamais le bandeau, sans qu'un test d'état précédent soit
+    // nécessaire.
+    const newWinSet = checkWin(cells, grid.size, grid.winRule).winSet;
+    if ([...newWinSet].some((idx) => !winSet.has(idx))) {
+      setDismissed(false);
     }
 
     onChange({ ...grid, cells });
@@ -213,7 +210,7 @@ function GridCard({
         {grid.size} × {grid.size}
         {grid.freeCenter ? " · case libre" : ""}
         {grid.winRule && grid.winRule !== "line"
-          ? ` · ${WIN_RULES.find((r) => r.id === grid.winRule)?.label}`
+          ? ` · ${WIN_RULES.find((r) => r.id === grid.winRule)!.label}`
           : ""}
       </span>
 
