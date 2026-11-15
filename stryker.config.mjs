@@ -1,3 +1,28 @@
+// Chaque module est associé aux seuls fichiers de test capables de tuer ses
+// mutants : la CI lance un job par module (variable MUTATE, voir
+// .github/scripts/mutation-matrix.mjs) et le runner « command » ne relance que
+// ces tests-là pour chaque mutant. Relancer les 10 fichiers de test pour
+// chaque mutant coûtait ~30 min ; un seul fichier par mutant, réparti sur
+// des jobs parallèles, en coûte ~3.
+export const targets = {
+  'src/lib/bingo.ts': ['src/lib/bingo.test.ts'],
+  'src/lib/share.ts': ['src/lib/share.test.ts'],
+  'src/lib/colors.ts': ['src/lib/colors.test.ts'],
+  'src/lib/url.ts': ['src/lib/url.test.ts'],
+  'src/lib/download.ts': ['src/lib/download.test.ts'],
+  'src/lib/gridImage.ts': ['src/lib/gridImage.test.ts'],
+  'src/lib/print.ts': ['src/lib/print.test.ts'],
+  'src/lib/remoteSync.ts': ['src/lib/remoteSync.test.ts'],
+  'src/lib/pdfExport.ts': ['src/lib/pdfExport.test.ts'],
+  'src/lib/reorder.ts': ['src/lib/reorder.test.ts'],
+};
+
+const selected = process.env.MUTATE ? process.env.MUTATE.split(',') : Object.keys(targets);
+for (const file of selected) {
+  if (!targets[file]) throw new Error(`MUTATE : module inconnu ${file}`);
+}
+const tests = [...new Set(selected.flatMap((file) => targets[file]))];
+
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 export default {
   packageManager: "npm",
@@ -11,14 +36,7 @@ export default {
   // par mutant, sans passer par l'API interne de Vitest) contourne entièrement
   // cette intégration cassée. Voir CLAUDE.md.
   testRunner: "command",
-  commandRunner: {
-    // Liste figée à la main (plutôt qu'un glob) pour qu'elle reste
-    // synchronisée avec `mutate` ci-dessous : ajouter un fichier à `mutate`
-    // sans l'ajouter ici ferait survivre tous ses mutants faute de test
-    // lancé contre eux.
-    command:
-      "npx vitest run src/lib/bingo.test.ts src/lib/share.test.ts src/lib/colors.test.ts src/lib/url.test.ts src/lib/download.test.ts src/lib/gridImage.test.ts src/lib/print.test.ts src/lib/remoteSync.test.ts src/lib/pdfExport.test.ts src/lib/reorder.test.ts",
-  },
+  commandRunner: { command: `npx vitest run ${tests.join(' ')}` },
   // Le testRunner "command" ne peut pas faire d'analyse de couverture fine
   // (il ne fait que lancer une commande et lire son code de sortie) : chaque
   // mutant relance donc toute la liste de commandRunner.command ci-dessus.
@@ -35,7 +53,7 @@ export default {
   // abaissé pour la même raison : moins de contention CPU entre les
   // instances jsdom simultanées, au prix d'un temps total plus long.
   timeoutMS: 60_000,
-  concurrency: 2,
+  concurrency: 4,
   // Stryker réécrit par défaut tsconfig.json (extends/references) pour son
   // bac à sable, via `ts.parseConfigFileTextToJson` — une fonction retirée
   // dans TypeScript 7, ce qui fait planter Stryker avant même de lancer un
@@ -46,18 +64,7 @@ export default {
   // fichier ne fait pas partie du projet).
   tsconfigFile: "tsconfig.stryker-unused.json",
   reporters: ["html", "clear-text", "progress"],
-  mutate: [
-    "src/lib/bingo.ts",
-    "src/lib/share.ts",
-    "src/lib/colors.ts",
-    "src/lib/url.ts",
-    "src/lib/download.ts",
-    "src/lib/gridImage.ts",
-    "src/lib/print.ts",
-    "src/lib/remoteSync.ts",
-    "src/lib/pdfExport.ts",
-    "src/lib/reorder.ts",
-  ],
+  mutate: selected,
   thresholds: {
     high: 100,
     low: 100,

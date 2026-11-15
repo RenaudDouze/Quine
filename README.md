@@ -36,7 +36,7 @@ npm test              # tests unitaires (Vitest)
 npm run test:watch    # idem, en mode watch
 npm run test:coverage # tests unitaires + rapport de couverture
 npm run test:e2e      # tests fonctionnels (Playwright)
-npm run test:mutation # mutation testing (Stryker) sur la logique pure (src/lib/*.ts)
+npm run test:mutation # mutation testing (Stryker) sur la logique pure (src/lib/*.ts) ; `MUTATE=src/lib/bingo.ts npm run test:mutation` pour un seul module
 ```
 
 ## CI

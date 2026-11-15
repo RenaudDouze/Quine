@@ -48,14 +48,15 @@ Its commands run from inside `worker/`: `npm test`, `npm run typecheck`,
   `vite-env.d.ts`, `src/test/**`). `npm run test:coverage` fails the build
   otherwise. This is also the "Tests unitaires + couverture" CI job.
 - **100% mutation score** is enforced by `stryker.config.mjs`, but only for
-  the pure-logic files listed under `mutate` (currently `src/lib/bingo.ts`,
-  `share.ts`, `colors.ts`, `url.ts`, `download.ts`, `gridImage.ts`,
-  `print.ts`, `remoteSync.ts`, `pdfExport.ts`, `reorder.ts`). Component/CSS-only
-  changes don't affect this score; a new pure-logic file should be added to
-  that list **and** to `commandRunner.command`'s hand-maintained test-file
-  list in the same config (see below) — forgetting the second one makes
-  every mutant in the new file survive silently, since no test is actually
-  run against it. Where a mutant is truly behaviorally equivalent, it's
+  the pure-logic files listed in `targets` (top of `stryker.config.mjs`:
+  `src/lib/bingo.ts`, `share.ts`, `colors.ts`, `url.ts`, `download.ts`,
+  `gridImage.ts`, `print.ts`, `remoteSync.ts`, `pdfExport.ts`, `reorder.ts`).
+  Component/CSS-only changes don't affect this score; a new pure-logic file
+  must be added to `targets` with the test file(s) that kill its mutants:
+  each mutant only re-runs those tests (running the whole suite per mutant
+  took ~30 min), and CI runs one job per module (`MUTATE` env var, matrix from
+  `.github/scripts/mutation-matrix.mjs`). Locally, `MUTATE=src/lib/bingo.ts
+  npm run test:mutation` mutates a single module. Where a mutant is truly behaviorally equivalent, it's
   suppressed inline with a `// Stryker disable next-line <MutatorName>:
   <reasoning>` comment rather than a weaker test — see existing examples in
   `src/lib/bingo.ts` and `gridImage.ts` for the expected style.
