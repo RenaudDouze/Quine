@@ -242,3 +242,9 @@ adding new modals or interactive controls.
 - When changing anything under `src/lib/*.ts` that's in Stryker's `mutate`
   list, expect to need both a coverage-satisfying test *and* a
   mutation-killing one — they're not always the same test.
+
+## Documentation, versioning and architecture rules
+
+- `doc/` holds the stable truth for humans and agents: `architecture.md` (executable dependency rules), `codage.md` (conventions), `improvement.md` (backlog).
+- `npm run lint` also runs dependency-cruiser (`.dependency-cruiser.cjs`): no cycles, no orphan files, one-way layer dependencies. Document an exception next to the rule, never loosen it globally.
+- Commits follow Conventional Commits (`type(scope): subject`); enable the hook with `git config core.hooksPath .githooks`. The version is derived from the commits by semantic-release (`release.yml`): never edit a version number or a changelog by hand.
