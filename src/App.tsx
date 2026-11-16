@@ -3,11 +3,10 @@ import { useHashRoute } from "./hooks/useHashRoute";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useSystemDarkMode } from "./hooks/useSystemDarkMode";
 import { decodeGridsFromParam } from "./lib/share";
+import type { ThemePreference } from "./lib/theme";
 import { loadGrids, saveGrids, uid } from "./lib/storage";
 import HomeView from "./views/HomeView";
 import EditorView from "./views/EditorView";
-
-export type ThemePreference = "system" | "light" | "dark";
 
 export default function App() {
   const route = useHashRoute();

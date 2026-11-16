@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { Reorder } from "framer-motion";
-import type { ThemePreference } from "../App";
+import type { ThemePreference } from "../lib/theme";
 import CustomizeModal from "../components/CustomizeModal";
 import EditModal from "../components/EditModal";
 import GridCard from "../components/GridCard";
