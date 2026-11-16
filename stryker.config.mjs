@@ -26,6 +26,8 @@ export const targets = {
   'src/hooks/useRemoteSync.ts': ['src/hooks/useRemoteSync.test.ts'],
   'src/hooks/useSystemDarkMode.ts': ['src/hooks/useSystemDarkMode.test.ts'],
   'src/components/ErrorBoundary.tsx': ['src/components/ErrorBoundary.test.tsx'],
+  'src/components/PwaBanners.tsx': ['src/components/PwaBanners.test.tsx'],
+  'src/lib/updatePrompt.ts': ['src/lib/updatePrompt.test.ts'],
   'src/components/EditModal.tsx': ['src/components/EditModal.test.tsx'],
   'src/components/GridForm.tsx': ['src/components/GridForm.test.tsx'],
   'src/components/GridCard.tsx': ['src/components/GridCard.test.tsx'],

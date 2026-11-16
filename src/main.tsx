@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { MotionConfig } from 'framer-motion'
 import './index.css'
 import App from './App.tsx'
+import { PwaBanners } from './components/PwaBanners.tsx'
+import { registerSW } from 'virtual:pwa-register'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -12,6 +14,7 @@ createRoot(document.getElementById('root')!).render(
         dans +1. */}
     <MotionConfig reducedMotion="user">
       <App />
+      <PwaBanners register={registerSW} />
     </MotionConfig>
   </StrictMode>,
 )
