@@ -1,40 +1,39 @@
 version: 2
+
+# Une seule PR Dependabot par semaine pour tout le dépôt (npm racine, npm /worker,
+# github-actions). Les montées majeures de typescript et vitest restent exclues.
+multi-ecosystem-groups:
+  weekly:
+    schedule:
+      interval: weekly
+
 updates:
   - package-ecosystem: npm
     directory: /
-    schedule:
-      interval: weekly
-    groups:
-      dev-dependencies:
-        dependency-type: development
-        exclude-patterns:
-          - "typescript"
-          - "vitest"
-          - "@vitest/coverage-v8"
+    patterns: ["*"]
+    exclude-patterns:
+      - "typescript"
+      - "vitest"
+      - "@vitest/coverage-v8"
+    multi-ecosystem-group: weekly
     commit-message:
       prefix: build
       prefix-development: chore
       include: scope
-    open-pull-requests-limit: 10
 
   - package-ecosystem: npm
     directory: /worker
-    schedule:
-      interval: weekly
+    patterns: ["*"]
+    multi-ecosystem-group: weekly
     commit-message:
       prefix: build
       prefix-development: chore
       include: scope
-    open-pull-requests-limit: 10
 
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: weekly
-    groups:
-      github-actions:
-        patterns: ["*"]
+    patterns: ["*"]
+    multi-ecosystem-group: weekly
     commit-message:
       prefix: ci
       include: scope
-    open-pull-requests-limit: 10
