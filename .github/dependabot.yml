@@ -1,7 +1,8 @@
 version: 2
 
 # Une seule PR Dependabot par semaine pour tout le dépôt (npm racine, npm /worker,
-# github-actions). Les montées majeures de typescript et vitest restent exclues.
+# github-actions). Les montées majeures passent par major-updates.yml (UPD-04).
+# `exclude-patterns` n'est pas permis dans une entrée multi-écosystème.
 multi-ecosystem-groups:
   weekly:
     schedule:
@@ -11,10 +12,6 @@ updates:
   - package-ecosystem: npm
     directory: /
     patterns: ["*"]
-    exclude-patterns:
-      - "typescript"
-      - "vitest"
-      - "@vitest/coverage-v8"
     multi-ecosystem-group: weekly
     commit-message:
       prefix: build
