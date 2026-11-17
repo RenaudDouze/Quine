@@ -89,6 +89,11 @@ afterEach(() => {
 });
 
 describe("HomeView", () => {
+  it("shows the project version at the bottom of the page (VER-09)", () => {
+    renderHome();
+    expect(screen.getByText("Version 9.9.9-test")).toHaveClass("app-version");
+  });
+
   it("navigates to the editor when creating a grid from the empty state", async () => {
     const user = userEvent.setup();
     renderHome();

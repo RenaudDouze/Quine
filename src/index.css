@@ -999,3 +999,12 @@ button {
 #offline-banner {
   bottom: 64px;
 }
+
+/* Version du projet (VER-09) : discrète, en pied de page. */
+.app-version {
+  margin: 1.5rem 0;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  opacity: 0.8;
+}

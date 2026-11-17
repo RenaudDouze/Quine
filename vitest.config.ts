@@ -3,6 +3,8 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [react()],
+  // Valeur fixe : les tests ne dépendent pas des tags git (VER-09).
+  define: { __APP_VERSION__: JSON.stringify('9.9.9-test') },
   test: {
     environment: 'jsdom',
     globals: true,

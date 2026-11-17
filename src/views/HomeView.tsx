@@ -8,6 +8,7 @@ import { buildCells, matchesSearch, sortByPinned, type Grid } from "../lib/bingo
 import { mergeVisibleOrder } from "../lib/reorder";
 import { loadGrids, saveGrids, uid } from "../lib/storage";
 import { now } from "../lib/time";
+import { APP_VERSION } from "../lib/appVersion";
 import { navigate } from "../hooks/useHashRoute";
 import { useRemoteSync } from "../hooks/useRemoteSync";
 import { ErrorBoundary } from "../components/ErrorBoundary";
@@ -649,6 +650,8 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
           <EditModal grid={editGrid} onClose={() => setEditTargetId(null)} onSave={updateGrid} />
         </ErrorBoundary>
       )}
+
+      <p className="app-version">Version {APP_VERSION}</p>
 
       {syncNotice && (
         <div className="sync-toast" role="status">
