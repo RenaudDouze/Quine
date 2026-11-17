@@ -11,6 +11,10 @@ updates:
           - "typescript"
           - "vitest"
           - "@vitest/coverage-v8"
+    commit-message:
+      prefix: build
+      prefix-development: chore
+      include: scope
     open-pull-requests-limit: 10
 
   - package-ecosystem: npm
