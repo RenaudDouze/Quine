@@ -165,7 +165,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=moderate
         working-directory: worker
       - name: Audit complet (production + développement)
-        run: npm audit --audit-level=high
+        run: node ../.github/scripts/audit-check.mjs --level=high
         working-directory: worker
 
   audit:
@@ -181,7 +181,7 @@ jobs:
       - name: Audit des dépendances de production
         run: npm audit --omit=dev --audit-level=moderate
       - name: Audit complet (production + développement)
-        run: npm audit --audit-level=high
+        run: node .github/scripts/audit-check.mjs --level=high
 
   build:
     name: Build de production
