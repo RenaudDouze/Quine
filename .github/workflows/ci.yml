@@ -186,6 +186,9 @@ jobs:
   build:
     name: Build de production
     needs: [lint, typecheck, unit-tests, e2e-tests, mutation-testing, worker-tests, audit]
+    # Sans cette condition, `success()` implicite exige aussi que les modules de mutation (ancêtres,
+    # « skipped » quand aucun n'est concerné) aient réussi : le build serait sauté (MUT-10).
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
