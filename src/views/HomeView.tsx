@@ -447,7 +447,7 @@ export default function HomeView({ themePreference, onThemePreferenceChange }: P
             </div>
 
             {menuOpen && (
-              <div className="topbar-menu" role="menu">
+              <div className="topbar-menu">
                 {grids.length > 0 && (
                   <button
                     className="icon-btn"
