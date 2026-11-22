@@ -39,6 +39,15 @@ npm run test:e2e      # tests fonctionnels (Playwright)
 npm run test:mutation # mutation testing (Stryker) sur la logique pure (src/lib/*.ts) ; `MUTATE=src/lib/bingo.ts npm run test:mutation` pour un seul module
 ```
 
+## Domaine personnalisé
+
+L'application est servie sur <https://quine.douzeensemble.app> (fichier
+`public/CNAME`, copié tel quel dans `dist/` par Vite). `pages.yml` n'a pas de
+chemin de base à adapter. Le Worker de synchronisation n'accepte que cette
+origine : `ALLOWED_ORIGIN` dans `worker/wrangler.toml` (schéma et hôte, sans
+chemin ni slash final). Toute modification sous `worker/**` redéploie le Worker
+via `worker-deploy.yml`.
+
 ## CI
 
 `.github/workflows/ci.yml` exécute lint, typecheck, tests unitaires
